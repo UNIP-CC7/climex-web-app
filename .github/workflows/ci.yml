@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verificar e compilar
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Verificar tipos
+        run: npm run typecheck
+
+      - name: Análise estática (lint)
+        run: npm run lint
+
+      - name: Testes
+        run: npm run test
+
+      - name: Build de produção
+        run: npm run build
+
+      - name: Publicar o build como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: climex-web-dist
+          path: dist
+          retention-days: 7
