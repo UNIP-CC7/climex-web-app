@@ -56,3 +56,15 @@ src/
   theme/        tokens herdados do app mobile
   _layout/      (na raiz) mockup estático aprovado
 ```
+
+## Fluxo de trabalho (Git Flow)
+
+- `main`: só código de produção.
+- `develop`: integra o que está em andamento. É a base de toda feature.
+- `feature/<assunto>`: uma branch por funcionalidade ou correção, criada a partir da `develop`.
+
+Todo código entra na `develop` por pull request, com revisão de pelo menos outra pessoa da equipe. Ninguém faz push direto em `main` ou `develop`.
+
+Commits seguem o Conventional Commits. Use `npm run commit` para montar a mensagem (commitizen), por exemplo `feat(socorro): filtrar por bairro` ou `fix(mapa): corrigir zoom inicial`.
+
+Antes de abrir o pull request, rode `npm run typecheck`, `npm run lint` e `npm run test`.
