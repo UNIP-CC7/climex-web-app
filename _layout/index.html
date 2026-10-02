@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Climex Painel, mockup de layout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<style>
+:root{
+  /* tokens herdados do climex-mobile-app */
+  --primary:#05224d; --primary-lighten:#CAE6FF; --bg-slate:#263645; --secondary:#E8E6DF;
+  --danger:#E24B4A; --danger-lighten:#FCEBEB; --danger-contrast:#791F1F;
+  /* derivados para o tema escuro */
+  --app:#031a3c; --panel:#0a2a5c; --panel-2:#0e3270; --line:rgba(202,230,255,.14);
+  --text:#E8E6DF; --muted:#9db3cf; --accent:#CAE6FF;
+  --sev-obs:#7fb6ff; --sev-atn:#e8b04a; --sev-alr:#ee8a3f; --sev-max:#E24B4A;
+  --ok:#5fc59a;
+  --r:12px; --r-sm:8px;
+  --font:'Geist',system-ui,sans-serif; --mono:'Geist Mono',ui-monospace,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--app);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* shell */
+.shell{display:grid;grid-template-columns:232px 1fr;min-height:100dvh}
+.side{background:var(--primary);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:24px;position:sticky;top:0;height:100dvh}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px;font-weight:600;font-size:18px;letter-spacing:-.01em}
+.brand i{font-size:24px;color:var(--accent)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--r-sm);color:var(--muted);text-align:left;transition:background .2s var(--ease),color .2s var(--ease),transform .12s}
+.nav button i{font-size:20px}
+.nav button:hover{background:rgba(202,230,255,.07);color:var(--text)}
+.nav button:active{transform:scale(.98)}
+.nav button[aria-current=page]{background:rgba(202,230,255,.12);color:var(--accent)}
+.nav .badge{margin-left:auto;background:var(--danger);color:#fff;font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px}
+.nav small{margin:14px 12px 4px;color:var(--muted);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+.me{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--r-sm);background:rgba(202,230,255,.06)}
+.me .av{width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--primary);display:grid;place-items:center;font-weight:600}
+.me b{display:block;font-weight:500}.me span{color:var(--muted);font-size:12px}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(3,26,60,.88);backdrop-filter:blur(10px);z-index:900}
+.top h1{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.top .sub{color:var(--muted);font-size:13px}
+.top .sp{flex:1}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--line);border-radius:99px;color:var(--muted);font-size:13px}
+.pill i{font-size:16px}
+.live{color:var(--ok);border-color:rgba(95,197,154,.35)}
+.view{padding:24px 28px 40px;display:none;animation:in .35s var(--ease)}
+.view.on{display:block}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.stat .l{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+.stat .v{font-size:36px;font-weight:600;letter-spacing:-.02em;margin:6px 0 2px}
+.stat .d{font-size:12.5px;color:var(--muted)}
+.stat.crit{background:linear-gradient(160deg,rgba(226,75,74,.28),var(--panel) 70%);border-color:rgba(226,75,74,.45)}
+.stat.crit .l{color:#ffc9c8}
+.nrs{display:flex;gap:6px;margin-top:8px}
+.nrs span{font-size:12px;padding:2px 8px;border-radius:6px;font-family:var(--mono)}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr);gap:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.ph-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.ph-h h2{font-size:15px;font-weight:600}
+.ph-h .sp{flex:1}
+.link{color:var(--accent);font-size:13px;display:inline-flex;align-items:center;gap:4px}
+.link:hover{text-decoration:underline}
+.map{height:100%;min-height:380px;background:#0b2447}
+.panel.mapwrap .map{height:420px}
+.leaflet-container{font-family:var(--font);background:#0b2447}
+/* tema escuro: inverte os tiles claros do OSM (sem chave de API) */
+.leaflet-tile-pane{filter:invert(1) hue-rotate(195deg) brightness(.85) contrast(.95) saturate(.55)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--text);border-radius:10px}
+.leaflet-control-attribution{background:rgba(3,26,60,.7)!important;color:var(--muted)!important}
+.leaflet-control-attribution a{color:var(--accent)!important}
+
+/* severity */
+.sev{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:3px 9px;border-radius:6px}
+.s-obs{background:rgba(127,182,255,.16);color:var(--sev-obs)}
+.s-atn{background:rgba(232,176,74,.16);color:var(--sev-atn)}
+.s-alr{background:rgba(238,138,63,.18);color:var(--sev-alr)}
+.s-max{background:rgba(226,75,74,.22);color:#ff9b9a}
+
+/* lists */
+.list{display:flex;flex-direction:column}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px 18px;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item b{font-weight:500;display:block}
+.item span{color:var(--muted);font-size:12.5px}
+.ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:19px}
+
+/* occupancy */
+.occ{padding:6px 18px 14px}
+.occ .row{padding:10px 0}
+.occ .row div.t{display:flex;justify-content:space-between;margin-bottom:6px}
+.occ .bar{height:6px;border-radius:99px;background:rgba(202,230,255,.12);overflow:hidden}
+.occ .bar i{display:block;height:100%;border-radius:99px;background:var(--accent);transform-origin:left;animation:grow .8s var(--ease)}
+@keyframes grow{from{transform:scaleX(0)}}
+
+/* table */
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.chip{padding:8px 14px;border:1px solid var(--line);border-radius:99px;color:var(--muted);transition:.2s var(--ease)}
+.chip:hover{color:var(--text)}
+.chip[aria-pressed=true]{background:var(--accent);color:var(--primary);border-color:var(--accent);font-weight:500}
+table{width:100%;border-collapse:collapse}
+th{font-weight:500;color:var(--muted);font-size:12.5px;text-align:left;padding:12px 18px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{transition:background .2s}
+tbody tr:hover{background:rgba(202,230,255,.04)}
+tbody tr:last-child td{border-bottom:0}
+.nr{display:inline-grid;place-items:center;min-width:44px;padding:4px 8px;border-radius:8px;font-weight:600;font-family:var(--mono)}
+.nr-5{background:var(--danger);color:#fff}.nr-4{background:rgba(238,138,63,.25);color:#ffc08c}.nr-3{background:rgba(232,176,74,.2);color:#f3cf86}.nr-2{background:rgba(127,182,255,.18);color:var(--sev-obs)}
+.sos{margin-left:6px;font-size:11px;font-weight:700;background:var(--danger-lighten);color:var(--danger-contrast);padding:2px 6px;border-radius:5px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:var(--r-sm);background:var(--accent);color:var(--primary);font-weight:600;transition:transform .12s,filter .2s}
+.btn:hover{filter:brightness(1.06)}.btn:active{transform:scale(.97)}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+.tw{overflow-x:auto}
+
+/* full map */
+.layers{position:absolute;z-index:800;top:14px;right:14px;background:rgba(3,26,60,.92);border:1px solid var(--line);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:2px;min-width:200px}
+.layers label{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer}
+.layers label:hover{background:rgba(202,230,255,.07)}
+.layers input{accent-color:var(--accent);width:16px;height:16px}
+.legend{position:absolute;z-index:800;left:14px;bottom:26px;background:rgba(3,26,60,.92);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+.big{position:relative;height:calc(100dvh - 150px);min-height:520px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line)}
+.big .map{height:100%}
+
+.note{margin-top:14px;color:var(--muted);font-size:12.5px}
+
+@media (max-width:1180px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .side{position:fixed;inset:auto 0 0 0;height:auto;z-index:1000;flex-direction:row;padding:6px 8px;border-right:0;border-top:1px solid var(--line);gap:0}
+  .brand,.me,.nav small{display:none}
+  .nav{flex-direction:row;width:100%;justify-content:space-around}
+  .nav button{flex-direction:column;gap:2px;padding:6px 8px;font-size:11px}
+  .nav button .badge{position:absolute;margin:0;transform:translate(14px,-6px)}
+  .nav button{position:relative}
+  .nav .extra{display:none}
+  .top{padding:12px 16px}.view{padding:16px 16px 96px}
+  .top .sub,.top .pill.hide{display:none}
+  .big{height:70dvh}
+}
+@media (max-width:560px){.stats{grid-template-columns:1fr 1fr;gap:10px}.stat .v{font-size:30px}.stat{padding:14px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><i class="ph ph-cloud-lightning"></i>Climex</div>
+    <nav class="nav" aria-label="Principal">
+      <button data-v="dash" aria-current="page"><i class="ph ph-squares-four"></i>Painel</button>
+      <button data-v="map"><i class="ph ph-map-trifold"></i>Mapa</button>
+      <button data-v="resc"><i class="ph ph-lifebuoy"></i>Socorro<span class="badge">12</span></button>
+      <button class="extra"><i class="ph ph-house-line"></i>Abrigos</button>
+      <button class="extra"><i class="ph ph-warning"></i>Alertas</button>
+      <button class="extra"><i class="ph ph-file-text"></i>Relatórios</button>
+      <small class="extra">Administração</small>
+      <button class="extra"><i class="ph ph-users"></i>Usuários</button>
+      <button class="extra"><i class="ph ph-shield-check"></i>Auditoria</button>
+    </nav>
+    <div class="me"><div class="av">MC</div><div><b>Marcos Cavalcante</b><span>Gestor municipal</span></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <div><h1 id="title">Painel de situação</h1><div class="sub" id="sub">Santana de Parnaíba, SP</div></div>
+      <div class="sp"></div>
+      <span class="pill live hide"><i class="ph ph-arrows-clockwise"></i><span id="ago" class="mono">atualizado há 0 s</span></span>
+      <span class="pill"><i class="ph ph-bell"></i>3 alertas ativos</span>
+    </header>
+
+    <!-- PAINEL -->
+    <section class="view on" id="v-dash">
+      <div class="stats">
+        <div class="stat crit"><div class="l"><i class="ph ph-warning-octagon"></i>Alertas ativos</div><div class="v mono">3</div><div class="d">1 em Alerta Máximo, Jardim Santa Rita</div></div>
+        <div class="stat"><div class="l"><i class="ph ph-lifebuoy"></i>Solicitações abertas</div><div class="v mono">12</div>
+          <div class="nrs"><span class="nr-5 nr">NR5 · 2</span><span class="nr-4 nr" style="min-width:0">NR4 · 4</span><span class="nr-3 nr" style="min-width:0">NR3 · 6</span></div></div>
+        <div class="stat"><div class="l"><i class="ph ph-house-line"></i>Abrigos com vagas</div><div class="v mono" id="st-abr">&nbsp;</div><div class="d" id="st-abr-d">carregando</div></div>
+        <div class="stat"><div class="l"><i class="ph ph-person-simple-run"></i>Agentes em campo</div><div class="v mono">9</div><div class="d">4 em atendimento agora</div></div>
+      </div>
+
+      <div class="grid">
+        <div class="panel mapwrap">
+          <div class="ph-h"><h2>Situação no território</h2><div class="sp"></div><button class="link" data-go="map">Abrir mapa completo<i class="ph ph-arrow-right"></i></button></div>
+          <div class="map" id="map1" style="height:420px"></div>
+        </div>
+        <div class="panel">
+          <div class="ph-h"><h2>Alertas ativos</h2></div>
+          <div class="list">
+            <div class="item"><div class="ico s-max"><i class="ph ph-cloud-rain"></i></div><div><b>Chuva intensa, Jardim Santa Rita</b><span>Emitido às 14:12 · expira 18:00</span></div><span class="sev s-max">Alerta Máximo</span></div>
+            <div class="item"><div class="ico s-alr"><i class="ph ph-waves"></i></div><div><b>Risco de alagamento, Fazendinha</b><span>Emitido às 13:40 · expira 17:00</span></div><span class="sev s-alr">Alerta</span></div>
+            <div class="item"><div class="ico s-atn"><i class="ph ph-wind"></i></div><div><b>Rajadas de vento, Centro</b><span>Emitido às 12:05 · expira 16:00</span></div><span class="sev s-atn">Atenção</span></div>
+          </div>
+          <div class="ph-h" style="border-top:1px solid var(--line)"><h2>Ocupação dos abrigos</h2></div>
+          <div class="occ" id="occ"></div>
+          <p class="note" style="padding:0 18px 14px;margin:0">Locais reais do OpenStreetMap (<span id="base-n">0</span> candidatos no estado). Ocupação simulada.</p>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <div class="ph-h"><h2>Próximas na fila de socorro</h2><div class="sp"></div><button class="link" data-go="resc">Ver fila completa<i class="ph ph-arrow-right"></i></button></div>
+        <div class="tw"><table>
+          <thead><tr><th>Nível</th><th>Tipo</th><th>Local</th><th>Aberta há</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><span class="nr nr-5">5</span><span class="sos">SOS</span></td><td>Ilhado</td><td>Rua das Acácias, 214, Jd. Santa Rita</td><td class="mono">04 min</td><td><button class="btn">Aceitar</button></td></tr>
+            <tr><td><span class="nr nr-5">5</span></td><td>Ferido</td><td>Av. Tenente Marques, km 3</td><td class="mono">09 min</td><td><button class="btn">Aceitar</button></td></tr>
+            <tr><td><span class="nr nr-4">4</span></td><td>Evacuação</td><td>Rua do Rosário, 88, Fazendinha</td><td class="mono">17 min</td><td><button class="btn">Aceitar</button></td></tr>
+          </tbody></table></div>
+      </div>
+    </section>
+
+    <!-- MAPA -->
+    <section class="view" id="v-map">
+      <div class="big">
+        <div class="map" id="map2"></div>
+        <div class="layers" role="group" aria-label="Camadas">
+          <label><input type="checkbox" data-layer="alerts" checked>Áreas de alerta</label>
+          <label><input type="checkbox" data-layer="shelters" checked>Abrigos</label>
+          <label><input type="checkbox" data-layer="rescue" checked>Solicitações</label>
+          <label><input type="checkbox" data-layer="heat">Concentração de ocorrências</label>
+        </div>
+        <div class="legend">
+          <div><i style="background:var(--sev-obs)"></i>Observação</div>
+          <div><i style="background:var(--sev-atn)"></i>Atenção</div>
+          <div><i style="background:var(--sev-alr)"></i>Alerta</div>
+          <div><i style="background:var(--sev-max)"></i>Alerta Máximo</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SOCORRO -->
+    <section class="view" id="v-resc">
+      <div class="tools" role="group" aria-label="Filtros">
+        <button class="chip" aria-pressed="true">Abertas · 12</button>
+        <button class="chip" aria-pressed="false">Em atendimento · 4</button>
+        <button class="chip" aria-pressed="false">Concluídas hoje · 31</button>
+        <button class="chip" aria-pressed="false">Somente SOS · 2</button>
+      </div>
+      <div class="panel"><div class="tw"><table>
+        <thead><tr><th>Nível</th><th>Tipo</th><th>Local</th><th>Solicitante</th><th>Distância do agente</th><th>Aberta há</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><span class="nr nr-5">5</span><span class="sos">SOS</span></td><td>Ilhado</td><td>Rua das Acácias, 214<br><span style="color:var(--muted);font-size:12.5px">Jardim Santa Rita, dentro de área de alerta</span></td><td>Cidadã, 3 pessoas</td><td class="mono">1,2 km</td><td class="mono">04 min</td><td><button class="btn">Aceitar</button></td></tr>
+          <tr><td><span class="nr nr-5">5</span></td><td>Ferido</td><td>Av. Tenente Marques, km 3<br><span style="color:var(--muted);font-size:12.5px">Cidade São Pedro</span></td><td>Cidadão, 1 pessoa</td><td class="mono">2,8 km</td><td class="mono">09 min</td><td><button class="btn">Aceitar</button></td></tr>
+          <tr><td><span class="nr nr-4">4</span></td><td>Evacuação</td><td>Rua do Rosário, 88<br><span style="color:var(--muted);font-size:12.5px">Fazendinha, dentro de área de alerta</span></td><td>Cidadã, 5 pessoas</td><td class="mono">3,4 km</td><td class="mono">17 min</td><td><button class="btn">Aceitar</button></td></tr>
+          <tr><td><span class="nr nr-4">4</span></td><td>Desabamento</td><td>Travessa Ipê, 12<br><span style="color:var(--muted);font-size:12.5px">Vila Pindorama</span></td><td>Cidadão, 2 pessoas</td><td class="mono">4,1 km</td><td class="mono">22 min</td><td><button class="btn">Aceitar</button></td></tr>
+          <tr><td><span class="nr nr-3">3</span></td><td>Evacuação</td><td>Rua Bahia, 301<br><span style="color:var(--muted);font-size:12.5px">Parque Santana</span></td><td>Cidadã, 2 pessoas</td><td class="mono">5,0 km</td><td class="mono">31 min</td><td><button class="btn ghost">Aceitar</button></td></tr>
+          <tr><td><span class="nr nr-2">2</span></td><td>Ilhado</td><td>Estrada do Votorantim, 1500<br><span style="color:var(--muted);font-size:12.5px">Zona rural</span></td><td>Cidadão, 1 pessoa</td><td class="mono">9,6 km</td><td class="mono">48 min</td><td><button class="btn ghost">Aceitar</button></td></tr>
+        </tbody></table></div></div>
+      <p class="note">Ordenada por nível de risco e, em empate, pela distância até o agente disponível. Dados de exemplo.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+const titles={dash:['Painel de situação','Santana de Parnaíba, SP'],map:['Mapa operacional','Alertas, abrigos e solicitações'],resc:['Fila de socorro','Triagem por nível de risco']};
+const views=document.querySelectorAll('.view'),btns=document.querySelectorAll('.nav button[data-v]');
+let m1,m2,ready={};
+function go(v){
+  views.forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+  btns.forEach(b=>b.toggleAttribute('aria-current',b.dataset.v===v)); btns.forEach(b=>{if(b.dataset.v===v)b.setAttribute('aria-current','page')});
+  document.getElementById('title').textContent=titles[v][0];document.getElementById('sub').textContent=titles[v][1];
+  if(v==='dash'&&!ready.m1){m1=build('map1',false);ready.m1=1}
+  if(v==='map'&&!ready.m2){m2=build('map2',true);ready.m2=1}
+  setTimeout(()=>{m1&&m1.invalidateSize();m2&&m2.invalidateSize()},60);
+  history.replaceState(null,'','#'+v);
+}
+btns.forEach(b=>b.onclick=()=>go(b.dataset.v));
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{document.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed','false'));c.setAttribute('aria-pressed','true')});
+
+const C=[-23.4439,-46.9178];
+const TIPO={escola:'Escola',ginasio_esportivo:'Ginásio ou centro esportivo',centro_comunitario:'Centro comunitário',assistencia_social:'Assistência social (CRAS)'};
+const km=(a,b,c,d)=>{const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r*Math.cos(a*r);return 6371*Math.sqrt(x*x+y*y)};
+function simOcc(o){let h=0;for(const ch of o.osmId)h=(h*31+ch.charCodeAt(0))>>>0;const cap=60+(h%25)*10;return{cap,occ:Math.round(cap*(.25+((h>>>5)%70)/100))}}
+/* dados reais do OpenStreetMap (ODbL). Capacidade e ocupação são simuladas. */
+const DATA=fetch('../public/data/osm-sp-estado.json').then(r=>r.json()).then(j=>{
+  const PRIV=/clube|academia|pilates|crossfit|kart|natação|society|arena|spa\b|studio|jiu|muay|dança/i;
+  const PUB=/municipal|estadual|emef|emei|emeb|\bee\b|\bceu\b|etec|fatec|ginásio|poliesportivo|centro (esportivo|comunit|de atividades)/i;
+  const cand=j.itens.filter(o=>o.papel==='candidato_abrigo'&&!(o.tipo==='ginasio_esportivo'&&PRIV.test(o.nome))).map(o=>({...o,dist:km(C[0],C[1],o.lat,o.lng)}));
+  const ativos=cand.filter(o=>(o.tipo==='escola'||o.tipo==='ginasio_esportivo')&&PUB.test(o.nome)).sort((a,b)=>a.dist-b.dist).slice(0,7);
+  const tot=ativos.map(o=>simOcc(o)),livres=tot.reduce((s,x)=>s+x.cap-x.occ,0),capT=tot.reduce((s,x)=>s+x.cap,0);
+  const comVaga=tot.filter(x=>x.cap-x.occ>20).length;
+  document.getElementById('st-abr').innerHTML=comVaga+'<span style="font-size:20px;color:var(--muted)"> / 7</span>';
+  document.getElementById('st-abr-d').textContent=livres+' vagas livres de '+capT+' (simulado)';
+  document.getElementById('occ').innerHTML=ativos.slice(0,3).map(o=>{const s=simOcc(o);return '<div class="row"><div class="t"><span>'+o.nome+'</span><span class="mono">'+s.occ+' / '+s.cap+'</span></div><div class="bar"><i style="width:'+Math.round(100*s.occ/s.cap)+'%"></i></div></div>'}).join('');
+  document.getElementById('base-n').textContent=cand.length.toLocaleString('pt-BR');
+  return{cand};
+}).catch(err=>{
+  const aviso=location.protocol==='file:'?'Abra por http://localhost:5173/_layout/ (arquivo aberto direto não carrega os dados)':'Falha ao carregar os dados: '+err.message;
+  document.getElementById('st-abr').textContent='-';
+  document.getElementById('st-abr-d').textContent='dados indisponíveis';
+  document.getElementById('occ').innerHTML='<p class="note" style="padding:0 18px">'+aviso+'</p>';
+  return{cand:[]};
+});
+const col={obs:'#7fb6ff',atn:'#e8b04a',alr:'#ee8a3f',max:'#E24B4A'};
+function build(id,full){
+  const map=L.map(id,{zoomControl:true,scrollWheelZoom:full}).setView(C,full?13:12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© colaboradores do OpenStreetMap',maxZoom:19}).addTo(map);
+  const alerts=L.layerGroup(),shelters=L.layerGroup(),rescue=L.layerGroup(),heat=L.layerGroup();
+  const poly=(pts,c,t)=>L.polygon(pts,{color:c,weight:2,fillColor:c,fillOpacity:.22}).bindPopup(t);
+  poly([[-23.4300,-46.9400],[-23.4300,-46.9150],[-23.4470,-46.9120],[-23.4500,-46.9350]],col.max,'<b>Alerta Máximo</b><br>Chuva intensa, Jardim Santa Rita').addTo(alerts);
+  poly([[-23.4560,-46.9050],[-23.4560,-46.8860],[-23.4680,-46.8880],[-23.4690,-46.9040]],col.alr,'<b>Alerta</b><br>Risco de alagamento, Fazendinha').addTo(alerts);
+  poly([[-23.4080,-46.9250],[-23.4080,-46.9030],[-23.4200,-46.9020],[-23.4210,-46.9240]],col.atn,'<b>Atenção</b><br>Rajadas de vento, Centro').addTo(alerts);
+  const cluster=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:50,showCoverageOnHover:false}).addTo(shelters);
+  DATA.then(d=>{
+    const list=full?d.cand:d.cand.filter(o=>o.dist<=12);
+    list.forEach(o=>{
+      const sim=simOcc(o);
+      cluster.addLayer(L.marker([o.lat,o.lng],{icon:L.divIcon({className:'',html:'<div style="width:26px;height:26px;border-radius:8px;background:#CAE6FF;color:#05224d;display:grid;place-items:center;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.4)">A</div>',iconSize:[26,26]})})
+        .bindPopup('<b>'+o.nome+'</b><br>'+TIPO[o.tipo]+'<br>'+[o.rua,o.bairro].filter(Boolean).join(', ')+'<br><span style="color:#9db3cf">Ocupação simulada: '+sim.occ+' / '+sim.cap+'</span>'));
+    });
+  });
+  [[-23.4380,-46.9290,5],[-23.4340,-46.9210,5],[-23.4600,-46.8940,4],[-23.4430,-46.9100,4],[-23.4120,-46.9100,3]].forEach(r=>
+    L.circleMarker([r[0],r[1]],{radius:9,color:'#fff',weight:2,fillColor:r[2]>=5?col.max:r[2]===4?col.alr:col.atn,fillOpacity:1}).bindPopup('<b>Solicitação NR'+r[2]+'</b>').addTo(rescue));
+  [[-23.4380,-46.9290,700],[-23.4600,-46.8940,500]].forEach(h=>L.circle([h[0],h[1]],{radius:h[2],stroke:false,fillColor:'#E24B4A',fillOpacity:.18}).addTo(heat));
+  const G={alerts,shelters,rescue,heat};
+  ['alerts','shelters','rescue'].forEach(k=>G[k].addTo(map));
+  if(full)document.querySelectorAll('[data-layer]').forEach(i=>i.onchange=()=>i.checked?G[i.dataset.layer].addTo(map):map.removeLayer(G[i.dataset.layer]));
+  return map;
+}
+let s=0;setInterval(()=>{s=(s+1)%31;document.getElementById('ago').textContent='atualizado há '+s+' s'},1000);
+const h=location.hash.slice(1);go(titles[h]?h:'dash');
+</script>
+</body>
+</html>
