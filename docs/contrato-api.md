@@ -31,12 +31,12 @@ Abrigos: criar, editar capacidade, situação, recursos e registrar entrada e sa
 | Severidade do alerta | `OBSERVACAO`, `ATENCAO`, `ALERTA`, `ALERTA_MAXIMO` | igual |
 | Situação do alerta | `active` (booleano) | `ACTIVE`, `MONITORING`, `RESOLVED`, `EXPIRED` |
 | Tipo de socorro | `ILHADO`, `FERIDO`, `EVACUACAO`, `DESABAMENTO` | os mesmos, mais `OUTROS` |
-| Risco do socorro | número de 1 a 5 (NR) | `BAIXO`, `MEDIO`, `ALTO`, `CRITICO` (campo `nivelRisco`) |
+| Risco do socorro | número de 1 a 5 (NR) | `BAIXO`, `MEDIO`, `ALTO`, `CRITICO` (campo `nivelRisco`) e a pontuação inteira que originou a faixa (campo `nrScore`) |
 | Situação do socorro | `ABERTA`, `EM_ATENDIMENTO`, `CONCLUIDA` | `PENDING`, `ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `CANCELLED` |
 
 Decisões a tomar na hora de ligar:
 
-- **Risco:** a API devolve 4 faixas, o painel mostra NR de 1 a 5 e o selo SOS. Ou o painel passa a usar as 4 faixas, ou a API devolve também a pontuação numérica. O TCC (§3.3.2) fala em "Nível de Risco (NR)" e em "NR máximo" para o SOS.
+- **Risco:** a API devolve a faixa (`nivelRisco`, 4 valores) **e** a pontuação (`nrScore`), e ordena a fila de socorro por `nrScore` decrescente. O painel mostra NR de 1 a 5 e o selo SOS, com uma regra de exemplo própria (`src/lib/risk.ts`) que **deve ser descartada** ao ligar a API: o cálculo real está em `calculateNivelRisco`, no módulo `rescue` da API (soma de pesos por tipo, alerta ativo, grupos vulneráveis, número de vítimas, nível da água e risco estrutural; faixas em 30, 55 e 80 pontos). O SOS entra direto como `CRITICO`. Para o painel, basta decidir se exibe as 4 faixas ou converte para 1 a 5. Atenção: o campo `nrScore` está descrito no schema da API como "0-100", mas a soma máxima possível dos pesos é 165.
 - **Situação do socorro:** mapear `PENDING` para aberta, `ASSIGNED` e `IN_PROGRESS` para em atendimento, `RESOLVED` para concluída. `CANCELLED` não existe no painel.
 - **Perfil:** criar um mapeamento `ADMINISTRADOR` para `ADMIN` na borda do serviço, para não espalhar a diferença pelas telas.
 
