@@ -26,13 +26,26 @@ No Windows, se o `cp` não existir, use `copy .env.example .env`.
 ### Conferir que está tudo certo
 
 ```bash
-npm run typecheck   # tipos
-npm run lint        # análise estática
-npm run test        # testes (vitest)
-npm run build       # build de produção em dist/
+npm run typecheck      # tipos
+npm run lint           # análise estática (ESLint)
+npm run format:check   # formatação (Prettier). Para corrigir: npm run format
+npm run test           # testes (vitest)
+npm run test:coverage  # testes com cobertura, falha abaixo de 80%
+npm run build          # build de produção em dist/
 ```
 
 O mesmo conjunto roda no CI a cada push e pull request em `main` e `develop`.
+
+### Hooks de commit (Husky)
+
+O `npm ci` instala os hooks automaticamente (script `prepare`). Eles rodam em todo commit:
+
+- **pre-commit:** o `lint-staged` aplica Prettier e ESLint só nos arquivos que você alterou.
+- **commit-msg:** o `commitlint` exige o formato Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`...). A mensagem é recusada se não seguir. O `npm run commit` monta a mensagem para você.
+
+### Cobertura de testes
+
+O mínimo é 80% de linhas, instruções, funções e ramos, medido sobre o código da aplicação. Ficam de fora, por não terem lógica testável em ambiente de teste: o ponto de entrada (`main.tsx`), as definições de estilo (`styles.ts`), o tema, a massa de dados (`mocks/seed.ts`) e as camadas do mapa em Leaflet (`components/map`), que precisam de um navegador de verdade e são conferidas com o Playwright. O relatório HTML sai em `coverage/`.
 
 ## Variáveis de ambiente
 
