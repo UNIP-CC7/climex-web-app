@@ -98,7 +98,7 @@ src/
   features/     sessão e permissões por rota
   domain/       tipos do domínio
   theme/        tokens de cor herdados do app mobile
-docs/           contrato com a API e capturas de validação
+docs/           contrato com a API, capturas de validação e docs/tcc (registro e fontes para o TCC)
 _layout/        mockup estático aprovado do layout
 ```
 

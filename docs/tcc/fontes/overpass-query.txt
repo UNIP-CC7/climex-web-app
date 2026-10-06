@@ -1,0 +1,12 @@
+[out:json][timeout:240];
+area["ISO3166-2"="BR-SP"]["boundary"="administrative"]->.a;
+(
+ nwr(area.a)["amenity"="school"];
+ nwr(area.a)["leisure"="sports_centre"];
+ nwr(area.a)["building"="sports_hall"];
+ nwr(area.a)["amenity"="community_centre"];
+ nwr(area.a)["amenity"="social_facility"];
+ nwr(area.a)["amenity"="hospital"];
+ nwr(area.a)["amenity"="fire_station"];
+);
+out center tags;
