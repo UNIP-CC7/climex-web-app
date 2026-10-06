@@ -27,8 +27,14 @@ export default function LoginScreen() {
   return (
     <Wrap>
       <Card>
-        <h1><CloudLightning size={28} />Climex</h1>
-        <p>Painel da Defesa Civil. Neste protótipo ainda não há login de verdade: escolha um perfil para ver o painel como ele aparece para cada função.</p>
+        <h1>
+          <CloudLightning size={28} />
+          Climex
+        </h1>
+        <p>
+          Painel da Defesa Civil. Neste protótipo ainda não há login de verdade: escolha um perfil para ver o painel como ele aparece para cada
+          função.
+        </p>
         <div role="group" aria-label="Perfil de acesso">
           {OPTIONS.map((o) => (
             <Choice key={o.role} disabled={busy !== null} onClick={() => enter(o.role)}>

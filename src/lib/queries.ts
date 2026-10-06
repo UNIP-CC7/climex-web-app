@@ -56,5 +56,8 @@ export function useSetUserRole() {
 }
 export function useSetUserActive() {
   const inv = useInvalidate()
-  return useMutation({ mutationFn: (v: { id: string; active: boolean }) => services.users.setActive(v.id, v.active), onSuccess: () => inv('users', 'audit') })
+  return useMutation({
+    mutationFn: (v: { id: string; active: boolean }) => services.users.setActive(v.id, v.active),
+    onSuccess: () => inv('users', 'audit'),
+  })
 }

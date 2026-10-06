@@ -15,7 +15,10 @@ export const SEVERITY_COLOR: Record<Severity, string> = {
 }
 
 const KIND_LABEL: Record<Shelter['kind'], string> = {
-  escola: 'Escola', ginasio_esportivo: 'Ginásio ou centro esportivo', centro_comunitario: 'Centro comunitário', assistencia_social: 'Assistência social',
+  escola: 'Escola',
+  ginasio_esportivo: 'Ginásio ou centro esportivo',
+  centro_comunitario: 'Centro comunitário',
+  assistencia_social: 'Assistência social',
 }
 
 const shelterIcon = L.divIcon({
@@ -24,7 +27,19 @@ const shelterIcon = L.divIcon({
   iconSize: [26, 26],
 })
 
-export function BaseMap({ center = CENTER, zoom = 12, wheel = false, height, children }: { center?: LatLng; zoom?: number; wheel?: boolean; height?: number | string; children?: ReactNode }) {
+export function BaseMap({
+  center = CENTER,
+  zoom = 12,
+  wheel = false,
+  height,
+  children,
+}: {
+  center?: LatLng
+  zoom?: number
+  wheel?: boolean
+  height?: number | string
+  children?: ReactNode
+}) {
   return (
     <MapContainer center={center} zoom={zoom} scrollWheelZoom={wheel} style={{ height: height ?? '100%', minHeight: 320, width: '100%' }}>
       <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© colaboradores do OpenStreetMap" maxZoom={19} />
@@ -36,11 +51,23 @@ export function BaseMap({ center = CENTER, zoom = 12, wheel = false, height, chi
 export function AlertLayer({ alerts }: { alerts: Alert[] }) {
   return (
     <>
-      {alerts.filter((a) => a.active).map((a) => (
-        <Polygon key={a.id} positions={a.polygon} pathOptions={{ color: SEVERITY_COLOR[a.severity], weight: 2, fillColor: SEVERITY_COLOR[a.severity], fillOpacity: 0.22 }}>
-          <Popup><b>{SEVERITY_LABEL[a.severity]}</b><br />{a.title}<br />{a.neighborhood}</Popup>
-        </Polygon>
-      ))}
+      {alerts
+        .filter((a) => a.active)
+        .map((a) => (
+          <Polygon
+            key={a.id}
+            positions={a.polygon}
+            pathOptions={{ color: SEVERITY_COLOR[a.severity], weight: 2, fillColor: SEVERITY_COLOR[a.severity], fillOpacity: 0.22 }}
+          >
+            <Popup>
+              <b>{SEVERITY_LABEL[a.severity]}</b>
+              <br />
+              {a.title}
+              <br />
+              {a.neighborhood}
+            </Popup>
+          </Polygon>
+        ))}
     </>
   )
 }
@@ -51,8 +78,13 @@ export function ShelterLayer({ shelters }: { shelters: Shelter[] }) {
       {shelters.map((s) => (
         <Marker key={s.id} position={[s.lat, s.lng]} icon={shelterIcon}>
           <Popup>
-            <b>{s.name}</b><br />{KIND_LABEL[s.kind]}<br />{[s.street, s.neighborhood].filter(Boolean).join(', ')}
-            <br /><span style={{ color: theme.colors.muted }}>
+            <b>{s.name}</b>
+            <br />
+            {KIND_LABEL[s.kind]}
+            <br />
+            {[s.street, s.neighborhood].filter(Boolean).join(', ')}
+            <br />
+            <span style={{ color: theme.colors.muted }}>
               {s.status === 'ATIVO' ? `Ocupação simulada: ${s.occupancy} / ${s.capacity}` : 'Candidato, ainda não validado pela Defesa Civil'}
             </span>
           </Popup>
@@ -67,11 +99,27 @@ const RISK_COLOR = (r: number) => (r >= 5 ? theme.colors.severity.max : r === 4 
 export function RescueLayer({ items }: { items: RescueRequest[] }) {
   return (
     <>
-      {items.filter((r) => r.status !== 'CONCLUIDA').map((r) => (
-        <CircleMarker key={r.id} center={[r.lat, r.lng]} radius={9} pathOptions={{ color: '#fff', weight: 2, fillColor: RISK_COLOR(r.risk), fillOpacity: 1 }}>
-          <Popup><b>NR {r.risk}{r.sos ? ' (SOS)' : ''}, {RESCUE_TYPE_LABEL[r.type]}</b><br />{r.address}<br />Aberta às {clock(r.openedAt)}</Popup>
-        </CircleMarker>
-      ))}
+      {items
+        .filter((r) => r.status !== 'CONCLUIDA')
+        .map((r) => (
+          <CircleMarker
+            key={r.id}
+            center={[r.lat, r.lng]}
+            radius={9}
+            pathOptions={{ color: '#fff', weight: 2, fillColor: RISK_COLOR(r.risk), fillOpacity: 1 }}
+          >
+            <Popup>
+              <b>
+                NR {r.risk}
+                {r.sos ? ' (SOS)' : ''}, {RESCUE_TYPE_LABEL[r.type]}
+              </b>
+              <br />
+              {r.address}
+              <br />
+              Aberta às {clock(r.openedAt)}
+            </Popup>
+          </CircleMarker>
+        ))}
     </>
   )
 }
@@ -81,7 +129,13 @@ export function HeatLayer({ items }: { items: RescueRequest[] }) {
   return (
     <>
       {items.map((r) => (
-        <CircleMarker key={r.id} center={[r.lat, r.lng]} radius={26} pathOptions={{ stroke: false, fillColor: theme.colors.danger, fillOpacity: 0.16 }} interactive={false} />
+        <CircleMarker
+          key={r.id}
+          center={[r.lat, r.lng]}
+          radius={26}
+          pathOptions={{ stroke: false, fillColor: theme.colors.danger, fillOpacity: 0.16 }}
+          interactive={false}
+        />
       ))}
     </>
   )
