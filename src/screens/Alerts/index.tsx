@@ -25,10 +25,18 @@ export default function AlertsScreen() {
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const f = new FormData(e.currentTarget)
+    const form = e.currentTarget // depois do await o evento já perdeu o currentTarget
+    const f = new FormData(form)
     create.mutate(
-      { title: String(f.get('title')), neighborhood: String(f.get('neighborhood')), severity, center, radiusKm: radius, hours: Number(f.get('hours')) || 6 },
-      { onSuccess: () => e.currentTarget.reset() },
+      {
+        title: String(f.get('title')),
+        neighborhood: String(f.get('neighborhood')),
+        severity,
+        center,
+        radiusKm: radius,
+        hours: Number(f.get('hours')) || 6,
+      },
+      { onSuccess: () => form.reset() },
     )
   }
 
@@ -36,43 +44,102 @@ export default function AlertsScreen() {
     <Page>
       <Split>
         <Panel>
-          <PanelHead><h2>Novo alerta</h2></PanelHead>
+          <PanelHead>
+            <h2>Novo alerta</h2>
+          </PanelHead>
           <FormGrid onSubmit={submit}>
-            <Field className="full">Descrição<input name="title" required minLength={5} placeholder="Ex.: Chuva forte com risco de enchente" /></Field>
-            <Field>Bairro<input name="neighborhood" required placeholder="Ex.: Fazendinha" /></Field>
-            <Field>Duração (horas)<input name="hours" type="number" min={1} max={72} defaultValue={6} /></Field>
-            <Field>Severidade
+            <Field className="full">
+              Descrição
+              <input name="title" required minLength={5} placeholder="Ex.: Chuva forte com risco de enchente" />
+            </Field>
+            <Field>
+              Bairro
+              <input name="neighborhood" required placeholder="Ex.: Fazendinha" />
+            </Field>
+            <Field>
+              Duração (horas)
+              <input name="hours" type="number" min={1} max={72} defaultValue={6} />
+            </Field>
+            <Field>
+              Severidade
               <select value={severity} onChange={(e) => setSeverity(e.target.value as Severity)}>
-                {(Object.keys(SEVERITY_LABEL) as Severity[]).map((s) => <option key={s} value={s}>{SEVERITY_LABEL[s]}</option>)}
+                {(Object.keys(SEVERITY_LABEL) as Severity[]).map((s) => (
+                  <option key={s} value={s}>
+                    {SEVERITY_LABEL[s]}
+                  </option>
+                ))}
               </select>
             </Field>
-            <Field>Raio da área: {radius.toFixed(1).replace('.', ',')} km
+            <Field>
+              Raio da área: {radius.toFixed(1).replace('.', ',')} km
               <input type="range" min={0.3} max={4} step={0.1} value={radius} onChange={(e) => setRadius(Number(e.target.value))} />
             </Field>
             <div className="full" style={{ height: 260, borderRadius: 8, overflow: 'hidden' }}>
               <BaseMap height={260} zoom={12} wheel>
                 <Picker onPick={setCenter} />
-                <Circle center={center} radius={radius * 1000} pathOptions={{ color: SEVERITY_COLOR[severity], fillColor: SEVERITY_COLOR[severity], fillOpacity: 0.25 }} />
+                <Circle
+                  center={center}
+                  radius={radius * 1000}
+                  pathOptions={{ color: SEVERITY_COLOR[severity], fillColor: SEVERITY_COLOR[severity], fillOpacity: 0.25 }}
+                />
               </BaseMap>
             </div>
-            <p className="full" style={{ color: '#9db3cf', fontSize: 12.5 }}>Clique no mapa para posicionar o centro da área afetada.</p>
-            <div className="full"><Btn type="submit" disabled={create.isPending}>{create.isPending ? 'Emitindo...' : 'Emitir alerta'}</Btn></div>
+            <p className="full" style={{ color: '#9db3cf', fontSize: 12.5 }}>
+              Clique no mapa para posicionar o centro da área afetada.
+            </p>
+            <div className="full">
+              <Btn type="submit" disabled={create.isPending}>
+                {create.isPending ? 'Emitindo...' : 'Emitir alerta'}
+              </Btn>
+            </div>
           </FormGrid>
         </Panel>
 
         <Panel>
-          <PanelHead><h2>Alertas</h2></PanelHead>
-          {isPending ? <Skeleton rows={4} h={36} /> : isError ? <ErrorMsg error={error} /> : data.length === 0 ? <Empty title="Nenhum alerta" /> : (
+          <PanelHead>
+            <h2>Alertas</h2>
+          </PanelHead>
+          {isPending ? (
+            <Skeleton rows={4} h={36} />
+          ) : isError ? (
+            <ErrorMsg error={error} />
+          ) : data.length === 0 ? (
+            <Empty title="Nenhum alerta" />
+          ) : (
             <TableWrap>
               <Table>
-                <thead><tr><th>Severidade</th><th>Área</th><th>Validade</th><th /></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Severidade</th>
+                    <th>Área</th>
+                    <th>Validade</th>
+                    <th />
+                  </tr>
+                </thead>
                 <tbody>
                   {data.map((a) => (
                     <tr key={a.id} style={{ opacity: a.active ? 1 : 0.55 }}>
-                      <td><SeverityBadge severity={a.severity} /></td>
-                      <td>{a.title}<small>{a.neighborhood} · fonte: {SOURCE[a.source]}</small></td>
-                      <td className="mono">{clock(a.issuedAt)} a {clock(a.expiresAt)}</td>
-                      <td>{a.active ? <Btn $ghost disabled={close.isPending} onClick={() => close.mutate(a.id)}>Encerrar</Btn> : <small>Encerrado</small>}</td>
+                      <td>
+                        <SeverityBadge severity={a.severity} />
+                      </td>
+                      <td>
+                        {a.title}
+                        <small>
+                          {a.neighborhood} · fonte: {SOURCE[a.source]}
+                        </small>
+                      </td>
+                      <td className="mono">
+                        {clock(a.issuedAt)} a {clock(a.expiresAt)}
+                      </td>
+                      <td>
+                        {a.active ? (
+                          <Btn $ghost disabled={close.isPending} onClick={() => close.mutate(a.id)}>
+                            Encerrar
+                          </Btn>
+                        ) : (
+                          <small>Encerrado</small>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -80,7 +147,9 @@ export default function AlertsScreen() {
             </TableWrap>
           )}
           <div style={{ height: 240 }}>
-            <BaseMap height={240}><AlertLayer alerts={data ?? []} /></BaseMap>
+            <BaseMap height={240}>
+              <AlertLayer alerts={data ?? []} />
+            </BaseMap>
           </div>
         </Panel>
       </Split>

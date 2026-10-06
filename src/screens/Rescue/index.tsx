@@ -23,12 +23,30 @@ export default function RescueScreen() {
     [data, filter],
   )
 
-  const tabs: [Filter, string][] = [['ABERTA', 'Abertas'], ['EM_ATENDIMENTO', 'Em atendimento'], ['CONCLUIDA', 'Concluídas'], ['SOS', 'Somente SOS']]
+  const tabs: [Filter, string][] = [
+    ['ABERTA', 'Abertas'],
+    ['EM_ATENDIMENTO', 'Em atendimento'],
+    ['CONCLUIDA', 'Concluídas'],
+    ['SOS', 'Somente SOS'],
+  ]
 
   function action(r: RescueRequest) {
-    if (r.status === 'ABERTA') return <Btn disabled={setStatus.isPending} onClick={() => setStatus.mutate({ id: r.id, status: 'EM_ATENDIMENTO', agent })}>Aceitar</Btn>
+    if (r.status === 'ABERTA')
+      return (
+        <Btn disabled={setStatus.isPending} onClick={() => setStatus.mutate({ id: r.id, status: 'EM_ATENDIMENTO', agent })}>
+          Aceitar
+        </Btn>
+      )
     if (r.status === 'EM_ATENDIMENTO') {
-      return <Btn $ghost disabled={setStatus.isPending} onClick={() => setStatus.mutate({ id: r.id, status: 'CONCLUIDA', agent, outcome: 'Atendida em campo' })}>Concluir</Btn>
+      return (
+        <Btn
+          $ghost
+          disabled={setStatus.isPending}
+          onClick={() => setStatus.mutate({ id: r.id, status: 'CONCLUIDA', agent, outcome: 'Atendida em campo' })}
+        >
+          Concluir
+        </Btn>
+      )
     }
     return <span style={{ color: '#9db3cf' }}>{r.outcome ?? 'Concluída'}</span>
   }
@@ -37,28 +55,56 @@ export default function RescueScreen() {
     <Page>
       <Toolbar role="group" aria-label="Filtros">
         {tabs.map(([k, label]) => (
-          <Chip key={k} $on={filter === k} aria-pressed={filter === k} onClick={() => setFilter(k)}>{label} · {count(k)}</Chip>
+          <Chip key={k} $on={filter === k} aria-pressed={filter === k} onClick={() => setFilter(k)}>
+            {label} · {count(k)}
+          </Chip>
         ))}
       </Toolbar>
       <Panel>
-        {isPending ? <Skeleton rows={6} h={36} /> : isError ? <ErrorMsg error={error} /> : rows.length === 0 ? (
+        {isPending ? (
+          <Skeleton rows={6} h={36} />
+        ) : isError ? (
+          <ErrorMsg error={error} />
+        ) : rows.length === 0 ? (
           <Empty title="Nada por aqui" hint="Nenhuma solicitação neste filtro." />
         ) : (
           <TableWrap>
             <Table>
               <thead>
-                <tr><th>Nível</th><th>Tipo</th><th>Local</th><th>Solicitante</th><th>Distância do agente</th><th>Aberta há</th><th>Situação</th><th /></tr>
+                <tr>
+                  <th>Nível</th>
+                  <th>Tipo</th>
+                  <th>Local</th>
+                  <th>Solicitante</th>
+                  <th>Distância do agente</th>
+                  <th>Aberta há</th>
+                  <th>Situação</th>
+                  <th />
+                </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td><RiskBadge risk={r.risk} sos={r.sos} /></td>
+                    <td>
+                      <RiskBadge risk={r.risk} sos={r.sos} />
+                    </td>
                     <td>{RESCUE_TYPE_LABEL[r.type]}</td>
-                    <td>{r.address}<small>{r.neighborhood}{r.inAlertArea ? ', dentro de área de alerta' : ''}</small></td>
-                    <td>{r.requesterName}, {r.people} {r.people === 1 ? 'pessoa' : 'pessoas'}</td>
+                    <td>
+                      {r.address}
+                      <small>
+                        {r.neighborhood}
+                        {r.inAlertArea ? ', dentro de área de alerta' : ''}
+                      </small>
+                    </td>
+                    <td>
+                      {r.requesterName}, {r.people} {r.people === 1 ? 'pessoa' : 'pessoas'}
+                    </td>
                     <td className="mono">{r.distanceKm.toFixed(1).replace('.', ',')} km</td>
                     <td className="mono">{ago(r.openedAt)}</td>
-                    <td>{RESCUE_STATUS_LABEL[r.status]}{r.assignedTo && <small>{r.assignedTo}</small>}</td>
+                    <td>
+                      {RESCUE_STATUS_LABEL[r.status]}
+                      {r.assignedTo && <small>{r.assignedTo}</small>}
+                    </td>
                     <td>{action(r)}</td>
                   </tr>
                 ))}
@@ -67,7 +113,10 @@ export default function RescueScreen() {
           </TableWrap>
         )}
       </Panel>
-      <Note>Ordenada por nível de risco e, em empate, pela distância até o agente. O nível aqui é calculado por uma regra de exemplo, a regra real virá da API. Dados simulados.</Note>
+      <Note>
+        Ordenada por nível de risco e, em empate, pela distância até o agente. O nível aqui é calculado por uma regra de exemplo, a regra real virá da
+        API. Dados simulados.
+      </Note>
     </Page>
   )
 }

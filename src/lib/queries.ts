@@ -7,7 +7,7 @@ export const REFRESH_MS = 30_000
 
 export const useSummary = () => useQuery({ queryKey: ['summary'], queryFn: services.dashboard.summary, refetchInterval: REFRESH_MS })
 export const useAlerts = () => useQuery({ queryKey: ['alerts'], queryFn: services.alerts.list, refetchInterval: REFRESH_MS })
-export const useShelters = () => useQuery({ queryKey: ['shelters'], queryFn: services.shelters.list, staleTime: Infinity })
+export const useShelters = () => useQuery({ queryKey: ['shelters'], queryFn: services.shelters.list, refetchInterval: REFRESH_MS })
 export const useRescue = () => useQuery({ queryKey: ['rescue'], queryFn: services.rescue.list, refetchInterval: REFRESH_MS })
 export const useUsers = () => useQuery({ queryKey: ['users'], queryFn: services.users.list })
 export const useAudit = () => useQuery({ queryKey: ['audit'], queryFn: services.audit.list })
@@ -56,5 +56,8 @@ export function useSetUserRole() {
 }
 export function useSetUserActive() {
   const inv = useInvalidate()
-  return useMutation({ mutationFn: (v: { id: string; active: boolean }) => services.users.setActive(v.id, v.active), onSuccess: () => inv('users', 'audit') })
+  return useMutation({
+    mutationFn: (v: { id: string; active: boolean }) => services.users.setActive(v.id, v.active),
+    onSuccess: () => inv('users', 'audit'),
+  })
 }

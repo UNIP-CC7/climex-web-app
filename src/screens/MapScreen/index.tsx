@@ -39,7 +39,10 @@ export default function MapScreen() {
         </Layers>
         <Legend>
           {(['OBSERVACAO', 'ATENCAO', 'ALERTA', 'ALERTA_MAXIMO'] as Severity[]).map((s) => (
-            <div key={s}><i style={{ background: SEVERITY_COLOR[s] }} />{SEVERITY_LABEL[s]}</div>
+            <div key={s}>
+              <i style={{ background: SEVERITY_COLOR[s] }} />
+              {SEVERITY_LABEL[s]}
+            </div>
           ))}
         </Legend>
       </Frame>

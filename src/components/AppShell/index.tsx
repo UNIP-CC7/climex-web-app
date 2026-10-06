@@ -1,14 +1,30 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  ArrowsClockwise, Bell, CloudLightning, FileText, HouseLine, Lifebuoy, MapTrifold, ShieldCheck, SignOut, SquaresFour, Users, Warning,
+  ArrowsClockwise,
+  Bell,
+  CloudLightning,
+  FileText,
+  HouseLine,
+  Lifebuoy,
+  MapTrifold,
+  ShieldCheck,
+  SignOut,
+  SquaresFour,
+  Users,
+  Warning,
 } from '@phosphor-icons/react'
 import { ROLE_LABEL, type Role } from '@/domain/types'
 import { ROUTE_ROLES, useAuth } from '@/features/auth/store'
 import { useAlerts, useRescue, useSummary } from '@/lib/queries'
 import { Avatar, Badge, Brand, Content, Main, Me, Nav, NavGroup, Pill, Shell, Side, SubTitle, Top, TopTitle } from './styles'
 
-interface Item { to: string; label: string; icon: typeof SquaresFour; group?: 'admin' }
+interface Item {
+  to: string
+  label: string
+  icon: typeof SquaresFour
+  group?: 'admin'
+}
 const ITEMS: Item[] = [
   { to: '/', label: 'Painel', icon: SquaresFour },
   { to: '/mapa', label: 'Mapa', icon: MapTrifold },
@@ -56,34 +72,79 @@ export function AppShell() {
   return (
     <Shell>
       <Side>
-        <Brand><CloudLightning size={24} weight="regular" />Climex</Brand>
+        <Brand>
+          <CloudLightning size={24} weight="regular" />
+          Climex
+        </Brand>
         <Nav aria-label="Principal">
-          {visible.filter((i) => !i.group).map((i) => (
-            <NavLink key={i.to} to={i.to} end={i.to === '/'} className={i.to === '/abrigos' || i.to === '/alertas' || i.to === '/relatorios' ? 'extra' : undefined}>
-              <i.icon size={20} />{i.label}
-              {i.to === '/socorro' && open > 0 && <Badge>{open}</Badge>}
-            </NavLink>
-          ))}
+          {visible
+            .filter((i) => !i.group)
+            .map((i) => (
+              <NavLink
+                key={i.to}
+                to={i.to}
+                end={i.to === '/'}
+                className={i.to === '/abrigos' || i.to === '/alertas' || i.to === '/relatorios' ? 'extra' : undefined}
+              >
+                <i.icon size={20} />
+                {i.label}
+                {i.to === '/socorro' && open > 0 && <Badge>{open}</Badge>}
+              </NavLink>
+            ))}
           {visible.some((i) => i.group) && <NavGroup className="extra">Administração</NavGroup>}
-          {visible.filter((i) => i.group).map((i) => (
-            <NavLink key={i.to} to={i.to} className="extra"><i.icon size={20} />{i.label}</NavLink>
-          ))}
+          {visible
+            .filter((i) => i.group)
+            .map((i) => (
+              <NavLink key={i.to} to={i.to} className="extra">
+                <i.icon size={20} />
+                {i.label}
+              </NavLink>
+            ))}
         </Nav>
         <Me>
-          <Avatar>{user.name.split(' ').map((p) => p[0]).slice(0, 2).join('')}</Avatar>
-          <div><b>{user.name}</b><span>{ROLE_LABEL[user.role]}</span></div>
-          <button aria-label="Sair" title="Sair" onClick={() => { signOut(); navigate('/entrar') }}><SignOut size={18} /></button>
+          <Avatar>
+            {user.name
+              .split(' ')
+              .map((p) => p[0])
+              .slice(0, 2)
+              .join('')}
+          </Avatar>
+          <div>
+            <b>{user.name}</b>
+            <span>{ROLE_LABEL[user.role]}</span>
+          </div>
+          <button
+            aria-label="Sair"
+            title="Sair"
+            onClick={() => {
+              signOut()
+              navigate('/entrar')
+            }}
+          >
+            <SignOut size={18} />
+          </button>
         </Me>
       </Side>
 
       <Main>
         <Top>
-          <div><TopTitle>{title}</TopTitle><SubTitle>{sub}</SubTitle></div>
+          <div>
+            <TopTitle>{title}</TopTitle>
+            <SubTitle>{sub}</SubTitle>
+          </div>
           <span style={{ flex: 1 }} />
-          <Pill $live className="hide"><ArrowsClockwise size={16} /><span className="mono">atualizado há {secs} s</span></Pill>
-          <Pill><Bell size={16} />{active} {active === 1 ? 'alerta ativo' : 'alertas ativos'}</Pill>
+          <Pill $live className="hide">
+            <ArrowsClockwise size={16} />
+            <span className="mono">atualizado há {secs} s</span>
+          </Pill>
+          <Pill>
+            <Bell size={16} />
+            {active} {active === 1 ? 'alerta ativo' : 'alertas ativos'}
+          </Pill>
         </Top>
-        <Content><Outlet /></Content>
+        <Content>
+          <Outlet />
+        </Content>
       </Main>
     </Shell>
   )
