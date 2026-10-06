@@ -32,11 +32,22 @@ jobs:
       - name: Análise estática (lint)
         run: npm run lint
 
-      - name: Testes
-        run: npm run test
+      - name: Verificar formatação
+        run: npm run format:check
+
+      - name: Testes com cobertura (mínimo de 80%)
+        run: npm run test:coverage
 
       - name: Build de produção
         run: npm run build
+
+      - name: Publicar o relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: climex-web-cobertura
+          path: coverage
+          retention-days: 7
 
       - name: Publicar o build como artefato
         uses: actions/upload-artifact@v4

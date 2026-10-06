@@ -14,7 +14,11 @@ const Reports = lazy(() => import('@/screens/Reports'))
 const Users = lazy(() => import('@/screens/Users'))
 const Audit = lazy(() => import('@/screens/Audit'))
 
-const Loading = () => <Page><Skeleton rows={4} h={40} /></Page>
+const Loading = () => (
+  <Page>
+    <Skeleton rows={4} h={40} />
+  </Page>
+)
 
 function Protected({ children }: { children: ReactNode }) {
   const user = useAuth((s) => s.user)
@@ -29,18 +33,85 @@ function Guard({ path, children }: { path: string; children: ReactNode }) {
 }
 
 export const router = createBrowserRouter([
-  { path: '/entrar', element: <Suspense fallback={null}><Login /></Suspense> },
   {
-    element: <Protected><AppShell /></Protected>,
+    path: '/entrar',
+    element: (
+      <Suspense fallback={null}>
+        <Login />
+      </Suspense>
+    ),
+  },
+  {
+    element: (
+      <Protected>
+        <AppShell />
+      </Protected>
+    ),
     children: [
-      { path: '/', element: <Guard path="/"><Dashboard /></Guard> },
-      { path: '/mapa', element: <Guard path="/mapa"><MapScreen /></Guard> },
-      { path: '/socorro', element: <Guard path="/socorro"><Rescue /></Guard> },
-      { path: '/abrigos', element: <Guard path="/abrigos"><Shelters /></Guard> },
-      { path: '/alertas', element: <Guard path="/alertas"><Alerts /></Guard> },
-      { path: '/relatorios', element: <Guard path="/relatorios"><Reports /></Guard> },
-      { path: '/usuarios', element: <Guard path="/usuarios"><Users /></Guard> },
-      { path: '/auditoria', element: <Guard path="/auditoria"><Audit /></Guard> },
+      {
+        path: '/',
+        element: (
+          <Guard path="/">
+            <Dashboard />
+          </Guard>
+        ),
+      },
+      {
+        path: '/mapa',
+        element: (
+          <Guard path="/mapa">
+            <MapScreen />
+          </Guard>
+        ),
+      },
+      {
+        path: '/socorro',
+        element: (
+          <Guard path="/socorro">
+            <Rescue />
+          </Guard>
+        ),
+      },
+      {
+        path: '/abrigos',
+        element: (
+          <Guard path="/abrigos">
+            <Shelters />
+          </Guard>
+        ),
+      },
+      {
+        path: '/alertas',
+        element: (
+          <Guard path="/alertas">
+            <Alerts />
+          </Guard>
+        ),
+      },
+      {
+        path: '/relatorios',
+        element: (
+          <Guard path="/relatorios">
+            <Reports />
+          </Guard>
+        ),
+      },
+      {
+        path: '/usuarios',
+        element: (
+          <Guard path="/usuarios">
+            <Users />
+          </Guard>
+        ),
+      },
+      {
+        path: '/auditoria',
+        element: (
+          <Guard path="/auditoria">
+            <Audit />
+          </Guard>
+        ),
+      },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

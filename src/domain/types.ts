@@ -3,7 +3,10 @@ export const ROLE_LABEL: Record<Role, string> = { AGENTE: 'Agente de campo', GES
 
 export type Severity = 'OBSERVACAO' | 'ATENCAO' | 'ALERTA' | 'ALERTA_MAXIMO'
 export const SEVERITY_LABEL: Record<Severity, string> = {
-  OBSERVACAO: 'Observação', ATENCAO: 'Atenção', ALERTA: 'Alerta', ALERTA_MAXIMO: 'Alerta Máximo',
+  OBSERVACAO: 'Observação',
+  ATENCAO: 'Atenção',
+  ALERTA: 'Alerta',
+  ALERTA_MAXIMO: 'Alerta Máximo',
 }
 export type LatLng = [number, number]
 
@@ -41,11 +44,16 @@ export interface Shelter {
 
 export type RescueType = 'ILHADO' | 'FERIDO' | 'EVACUACAO' | 'DESABAMENTO'
 export const RESCUE_TYPE_LABEL: Record<RescueType, string> = {
-  ILHADO: 'Ilhado', FERIDO: 'Ferido', EVACUACAO: 'Evacuação', DESABAMENTO: 'Desabamento',
+  ILHADO: 'Ilhado',
+  FERIDO: 'Ferido',
+  EVACUACAO: 'Evacuação',
+  DESABAMENTO: 'Desabamento',
 }
 export type RescueStatus = 'ABERTA' | 'EM_ATENDIMENTO' | 'CONCLUIDA'
 export const RESCUE_STATUS_LABEL: Record<RescueStatus, string> = {
-  ABERTA: 'Aberta', EM_ATENDIMENTO: 'Em atendimento', CONCLUIDA: 'Concluída',
+  ABERTA: 'Aberta',
+  EM_ATENDIMENTO: 'Em atendimento',
+  CONCLUIDA: 'Concluída',
 }
 /** Nível de Risco, 1 a 5 */
 export type RiskLevel = 1 | 2 | 3 | 4 | 5

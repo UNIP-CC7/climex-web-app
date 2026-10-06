@@ -2,7 +2,7 @@ import type { Alert, AppUser, DashboardSummary, RescueRequest, RiskLevel, Role, 
 import { ALERTS, AUDIT, CENTER, RESCUE, USERS, area, fakeHash } from '@/mocks/seed'
 import type { Services } from '../types'
 
-const delay = <T,>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v), ms))
+const delay = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v), ms))
 
 /* ---------- estado em memória (some ao recarregar) ---------- */
 let alerts: Alert[] = structuredClone(ALERTS)
@@ -13,13 +13,32 @@ const audit = structuredClone(AUDIT)
 function log(author: string, role: Role, action: string, entity: string, status = 200) {
   const prev = audit[audit.length - 1]?.hash ?? '0'.repeat(16)
   const at = new Date().toISOString()
-  audit.push({ seq: audit.length + 1, at, author, role, action, entity, status, ip: '10.20.0.15', hash: fakeHash(prev + author + action + entity + at), prevHash: prev })
+  audit.push({
+    seq: audit.length + 1,
+    at,
+    author,
+    role,
+    action,
+    entity,
+    status,
+    ip: '10.20.0.15',
+    hash: fakeHash(prev + author + action + entity + at),
+    prevHash: prev,
+  })
 }
 
 /* ---------- abrigos: locais reais do OpenStreetMap, capacidade simulada ---------- */
 interface OsmItem {
-  osmId: string; tipo: string; papel: string; nome: string; lat: number; lng: number
-  rua: string | null; bairro: string | null; cidade: string | null; telefone: string | null
+  osmId: string
+  tipo: string
+  papel: string
+  nome: string
+  lat: number
+  lng: number
+  rua: string | null
+  bairro: string | null
+  cidade: string | null
+  telefone: string | null
 }
 const PRIVATE = /clube|academia|pilates|crossfit|kart|natação|society|arena|spa\b|studio|jiu|muay|dança/i
 const PUBLIC = /municipal|estadual|emef|emei|emeb|\bee\b|\bceu\b|etec|fatec|ginásio|poliesportivo|centro (esportivo|comunit|de atividades)/i
@@ -83,15 +102,23 @@ const SEV_ORDER = { OBSERVACAO: 0, ATENCAO: 1, ALERTA: 2, ALERTA_MAXIMO: 3 } as 
 
 export const mockServices: Services = {
   auth: {
-    login: (role) => delay({ id: `sess-${role}`, role, name: { AGENTE: 'Renata Lopes', GESTOR: 'Marcos Cavalcante', ADMIN: 'Diego Arruda' }[role] }, 250),
+    login: (role) =>
+      delay({ id: `sess-${role}`, role, name: { AGENTE: 'Renata Lopes', GESTOR: 'Marcos Cavalcante', ADMIN: 'Diego Arruda' }[role] }, 250),
   },
   alerts: {
     list: () => delay([...alerts].sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])),
     create: ({ title, severity, neighborhood, center, radiusKm, hours }) => {
       const a: Alert = {
-        id: `al-${Date.now()}`, title, severity, neighborhood, city: 'Santana de Parnaíba',
-        polygon: area(center, radiusKm / 111), issuedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + hours * 3600000).toISOString(), active: true, source: 'MANUAL',
+        id: `al-${Date.now()}`,
+        title,
+        severity,
+        neighborhood,
+        city: 'Santana de Parnaíba',
+        polygon: area(center, radiusKm / 111),
+        issuedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
+        active: true,
+        source: 'MANUAL',
       }
       alerts = [a, ...alerts]
       log('Marcos Cavalcante', 'GESTOR', 'Criou alerta', `Alert ${a.id}`, 201)
@@ -129,7 +156,12 @@ export const mockServices: Services = {
     setStatus: (id, status, agent, outcome) => {
       rescue = rescue.map((r) => (r.id === id ? { ...r, status, assignedTo: status === 'ABERTA' ? null : agent, outcome: outcome ?? r.outcome } : r))
       const r = rescue.find((x) => x.id === id)!
-      log(agent, users.find((u) => u.name === agent)?.role ?? 'GESTOR', status === 'EM_ATENDIMENTO' ? 'Aceitou solicitação' : 'Registrou desfecho', `RescueRequest ${id}`)
+      log(
+        agent,
+        users.find((u) => u.name === agent)?.role ?? 'GESTOR',
+        status === 'EM_ATENDIMENTO' ? 'Aceitou solicitação' : 'Registrou desfecho',
+        `RescueRequest ${id}`,
+      )
       return delay({ ...r }, 80)
     },
   },
