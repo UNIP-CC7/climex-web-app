@@ -32,9 +32,10 @@ npm run format:check   # formatação (Prettier). Para corrigir: npm run format
 npm run test           # testes (vitest)
 npm run test:coverage  # testes com cobertura, falha abaixo de 80%
 npm run build          # build de produção em dist/
+npm run verify         # tudo acima, na ordem do CI (tipos, lint, formatação, testes com cobertura e build)
 ```
 
-O mesmo conjunto roda no CI a cada push e pull request em `main` e `develop`.
+O `npm run verify` para no primeiro passo que falhar e é o que se roda antes de abrir um pull request. O mesmo conjunto roda no CI a cada push e pull request em `main` e `develop`.
 
 ### Hooks de commit (Husky)
 
