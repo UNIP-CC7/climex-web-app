@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Role } from '@/domain/types'
+import { clearPersistedCache } from '@/lib/persist'
 import type { SessionUser } from '@/services/types'
 
 const KEY = 'climex.session'
@@ -30,10 +31,12 @@ interface AuthState {
 export const useAuth = create<AuthState>((set) => ({
   user: read(),
   signIn: (user) => {
+    clearPersistedCache() // entrada nova, sem herdar dados de outra sessão
     write(user)
     set({ user })
   },
   signOut: () => {
+    clearPersistedCache()
     write(null)
     set({ user: null })
   },
