@@ -19,7 +19,7 @@ vi.mock('@/components/map', async () => {
   return {
     BaseMap: ({ children }: { children?: unknown }) => createElement('div', { 'data-testid': 'mapa' }, children as never),
     AlertLayer: () => null,
-    HeatLayer: () => null,
+    HeatLayer: () => createElement('i', { 'data-testid': 'camada-calor' }),
     RescueLayer: () => null,
     ShelterLayer: ({ shelters }: { shelters: unknown[] }) => createElement('span', { 'data-testid': 'abrigos-no-mapa' }, String(shelters.length)),
     SEVERITY_COLOR: { OBSERVACAO: '#1', ATENCAO: '#2', ALERTA: '#3', ALERTA_MAXIMO: '#4' },
@@ -58,6 +58,18 @@ describe('Painel', () => {
     expect(screen.getByText(/Crítico · /)).toBeInTheDocument()
     expect(await screen.findByText(/vagas livres de/)).toBeInTheDocument()
     expect(screen.getByText('Chuva intensa e risco de enchente, Fazendinha')).toBeInTheDocument()
+  })
+
+  it('o mapa de calor é opcional e começa desligado', async () => {
+    loginAs('GESTOR')
+    renderWithApp(<Dashboard />)
+    const caixa = (await screen.findByLabelText('Mapa de calor')) as HTMLInputElement
+    expect(caixa.checked).toBe(false)
+    expect(screen.queryByTestId('camada-calor')).not.toBeInTheDocument()
+    fireEvent.click(caixa)
+    expect(screen.getByTestId('camada-calor')).toBeInTheDocument()
+    fireEvent.click(caixa)
+    expect(screen.queryByTestId('camada-calor')).not.toBeInTheDocument()
   })
 
   it('aceitar uma solicitação tira o contador de abertas', async () => {

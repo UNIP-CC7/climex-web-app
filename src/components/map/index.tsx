@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import L from 'leaflet'
-import { CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker } from 'react-leaflet'
+import { Circle, CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import {
   RESCUE_TYPE_LABEL,
@@ -15,6 +15,7 @@ import {
 import { theme } from '@/theme'
 import { CENTER } from '@/mocks/seed'
 import { clock } from '@/lib/format'
+import { heatCells } from '@/lib/heat'
 
 export const SEVERITY_COLOR: Record<Severity, string> = {
   OBSERVACAO: theme.colors.severity.obs,
@@ -150,16 +151,17 @@ export function RescueLayer({ items }: { items: RescueRequest[] }) {
   )
 }
 
-/** Concentração de ocorrências: círculos translúcidos somados por bairro. */
+/** Concentração de ocorrências em aberto: grade de ~550 m, mais quente onde o NR somado é maior. */
 export function HeatLayer({ items }: { items: RescueRequest[] }) {
+  const cells = useMemo(() => heatCells(items), [items])
   return (
     <>
-      {items.map((r) => (
-        <CircleMarker
-          key={r.id}
-          center={[r.lat, r.lng]}
-          radius={26}
-          pathOptions={{ stroke: false, fillColor: theme.colors.danger, fillOpacity: 0.16 }}
+      {cells.map((c) => (
+        <Circle
+          key={`${c.lat}:${c.lng}`}
+          center={[c.lat, c.lng]}
+          radius={380}
+          pathOptions={{ stroke: false, fillColor: theme.colors.danger, fillOpacity: 0.12 + 0.5 * c.intensity }}
           interactive={false}
         />
       ))}
