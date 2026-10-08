@@ -103,8 +103,12 @@ export function ShelterLayer({ shelters }: { shelters: Shelter[] }) {
   )
 }
 
-const RISK_COLOR = (band: RiskBand) =>
-  band === 'CRITICO' ? theme.colors.severity.max : band === 'ALTO' ? theme.colors.severity.alr : theme.colors.severity.atn
+const RISK_COLOR: Record<RiskBand, string> = {
+  CRITICO: theme.colors.severity.max,
+  ALTO: theme.colors.severity.alr,
+  MEDIO: theme.colors.severity.atn,
+  BAIXO: theme.colors.severity.obs,
+}
 
 export function RescueLayer({ items }: { items: RescueRequest[] }) {
   return (
@@ -116,7 +120,7 @@ export function RescueLayer({ items }: { items: RescueRequest[] }) {
             key={r.id}
             center={[r.lat, r.lng]}
             radius={9}
-            pathOptions={{ color: '#fff', weight: 2, fillColor: RISK_COLOR(r.risk.band), fillOpacity: 1 }}
+            pathOptions={{ color: '#fff', weight: 2, fillColor: RISK_COLOR[r.risk.band], fillOpacity: 1 }}
           >
             <Popup>
               <b>

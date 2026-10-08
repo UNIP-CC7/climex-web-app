@@ -166,8 +166,10 @@ const RISK_STYLE: Record<RiskBand, [string, string]> = {
   BAIXO: ['rgba(127,182,255,.18)', '#7fb6ff'],
 }
 const RiskTag = styled.span<{ $r: RiskBand }>`
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
   min-width: 40px;
   padding: 4px 8px;
   border-radius: 8px;
@@ -175,6 +177,10 @@ const RiskTag = styled.span<{ $r: RiskBand }>`
   font-family: ${({ theme }) => theme.font.mono};
   background: ${({ $r }) => RISK_STYLE[$r][0]};
   color: ${({ $r }) => RISK_STYLE[$r][1]};
+  small {
+    font-family: ${({ theme }) => theme.font.sans};
+    font-size: 11px;
+  }
 `
 const SosTag = styled.span`
   margin-left: 6px;
@@ -189,6 +195,7 @@ export const RiskBadge = ({ risk, sos }: { risk: Risk; sos?: boolean }) => (
   <span>
     <RiskTag $r={risk.band} aria-label={`Nível de risco ${risk.score}, ${RISK_BAND_LABEL[risk.band]}`}>
       {risk.score}
+      <small>{RISK_BAND_LABEL[risk.band]}</small>
     </RiskTag>
     {sos && <SosTag>SOS</SosTag>}
   </span>

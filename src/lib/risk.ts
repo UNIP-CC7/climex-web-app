@@ -9,7 +9,7 @@ export function riskBand(score: number): RiskBand {
 }
 
 export function makeRisk(score: number): Risk {
-  const s = Math.min(100, Math.max(0, Math.round(score)))
+  const s = Number.isFinite(score) ? Math.min(100, Math.max(0, Math.round(score))) : 0
   return { score: s, band: riskBand(s) }
 }
 

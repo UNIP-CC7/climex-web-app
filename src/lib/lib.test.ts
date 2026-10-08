@@ -30,6 +30,7 @@ describe('riskBand', () => {
   it('makeRisk limita a pontuação entre 0 e 100', () => {
     expect(makeRisk(140)).toEqual({ score: 100, band: 'CRITICO' })
     expect(makeRisk(-3)).toEqual({ score: 0, band: 'BAIXO' })
+    expect(makeRisk(Number.NaN)).toEqual({ score: 0, band: 'BAIXO' })
   })
 })
 
