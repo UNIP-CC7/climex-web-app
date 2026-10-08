@@ -95,7 +95,7 @@ export const mockServices: Services = {
         severity,
         neighborhood,
         city: 'Santana de Parnaíba',
-        polygon: area(center, radiusKm / 111),
+        polygons: [area(center, radiusKm / 111)],
         issuedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
         active: true,

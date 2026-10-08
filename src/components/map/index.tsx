@@ -71,7 +71,7 @@ export function AlertLayer({ alerts }: { alerts: Alert[] }) {
         .map((a) => (
           <Polygon
             key={a.id}
-            positions={a.polygon}
+            positions={a.polygons.map((ring) => [ring])} // um polígono por anel (o Leaflet leria anéis soltos como buracos)
             pathOptions={{ color: SEVERITY_COLOR[a.severity], weight: 2, fillColor: SEVERITY_COLOR[a.severity], fillOpacity: 0.22 }}
           >
             <Popup>
