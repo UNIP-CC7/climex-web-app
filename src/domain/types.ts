@@ -42,12 +42,13 @@ export interface Shelter {
   resources: { water: boolean; food: boolean; medical: boolean; accessible: boolean; pets: boolean }
 }
 
-export type RescueType = 'ILHADO' | 'FERIDO' | 'EVACUACAO' | 'DESABAMENTO'
+export type RescueType = 'ILHADO' | 'FERIDO' | 'EVACUACAO' | 'DESABAMENTO' | 'OUTROS'
 export const RESCUE_TYPE_LABEL: Record<RescueType, string> = {
   ILHADO: 'Ilhado',
   FERIDO: 'Ferido',
   EVACUACAO: 'Evacuação',
   DESABAMENTO: 'Desabamento',
+  OUTROS: 'Outros',
 }
 export type RescueStatus = 'ABERTA' | 'EM_ATENDIMENTO' | 'CONCLUIDA'
 export const RESCUE_STATUS_LABEL: Record<RescueStatus, string> = {
@@ -55,14 +56,21 @@ export const RESCUE_STATUS_LABEL: Record<RescueStatus, string> = {
   EM_ATENDIMENTO: 'Em atendimento',
   CONCLUIDA: 'Concluída',
 }
-/** Nível de Risco, 1 a 5 */
-export type RiskLevel = 1 | 2 | 3 | 4 | 5
+/** Faixa de risco, a mesma que a API devolve em `riskLevel` */
+export type RiskBand = 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO'
+export const RISK_BANDS: readonly RiskBand[] = ['CRITICO', 'ALTO', 'MEDIO', 'BAIXO']
+export const RISK_BAND_LABEL: Record<RiskBand, string> = { BAIXO: 'Baixo', MEDIO: 'Médio', ALTO: 'Alto', CRITICO: 'Crítico' }
+/** Nível de Risco (NR): pontuação de 0 a 100 e a faixa correspondente */
+export interface Risk {
+  score: number
+  band: RiskBand
+}
 
 export interface RescueRequest {
   id: string
   type: RescueType
   status: RescueStatus
-  risk: RiskLevel
+  risk: Risk
   sos: boolean
   lat: number
   lng: number
@@ -81,7 +89,7 @@ export interface DashboardSummary {
   activeAlerts: number
   maxAlert: Alert | null
   openRescue: number
-  openByRisk: Record<RiskLevel, number>
+  openByRisk: Record<RiskBand, number>
   sheltersWithSpots: number
   shelterTotal: number
   spotsFree: number

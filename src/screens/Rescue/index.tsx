@@ -19,7 +19,7 @@ export default function RescueScreen() {
     () =>
       (data ?? [])
         .filter((r) => (filter === 'SOS' ? r.sos && r.status !== 'CONCLUIDA' : r.status === filter))
-        .sort((a, b) => b.risk - a.risk || a.distanceKm - b.distanceKm),
+        .sort((a, b) => b.risk.score - a.risk.score || a.distanceKm - b.distanceKm),
     [data, filter],
   )
 
@@ -114,8 +114,8 @@ export default function RescueScreen() {
         )}
       </Panel>
       <Note>
-        Ordenada por nível de risco e, em empate, pela distância até o agente. O nível aqui é calculado por uma regra de exemplo, a regra real virá da
-        API. Dados simulados.
+        Ordenada por nível de risco e, em empate, pela distância até o agente. Nível de risco de 0 a 100, nas faixas Baixo, Médio, Alto e Crítico. No
+        modo simulado o valor vem de uma regra de exemplo, no modo HTTP vem da API. Dados simulados.
       </Note>
     </Page>
   )

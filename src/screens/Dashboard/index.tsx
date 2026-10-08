@@ -17,7 +17,7 @@ import {
   Table,
   TableWrap,
 } from '@/components/ui'
-import { RESCUE_TYPE_LABEL, SEVERITY_LABEL, type Severity } from '@/domain/types'
+import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, SEVERITY_LABEL, type Severity } from '@/domain/types'
 import { useAuth } from '@/features/auth/store'
 import { ago, clock, fmt } from '@/lib/format'
 import { useAlerts, useRescue, useSetRescueStatus, useShelters, useSummary } from '@/lib/queries'
@@ -46,7 +46,7 @@ export default function DashboardScreen() {
   const ativos = shelters.data?.filter((x) => x.status === 'ATIVO').slice(0, 3) ?? []
   const next = (rescue.data ?? [])
     .filter((r) => r.status === 'ABERTA')
-    .sort((a, b) => b.risk - a.risk || a.distanceKm - b.distanceKm)
+    .sort((a, b) => b.risk.score - a.risk.score || a.distanceKm - b.distanceKm)
     .slice(0, 3)
 
   return (
@@ -70,9 +70,9 @@ export default function DashboardScreen() {
           <div className="v mono">{s ? s.openRescue : '-'}</div>
           <RiskRow>
             {s &&
-              ([5, 4, 3] as const).map((n) => (
-                <span key={n} className={`n${n} mono`}>
-                  NR{n} · {s.openByRisk[n]}
+              (['CRITICO', 'ALTO', 'MEDIO'] as const).map((b) => (
+                <span key={b} className={`${b.toLowerCase()} mono`}>
+                  {RISK_BAND_LABEL[b]} · {s.openByRisk[b]}
                 </span>
               ))}
           </RiskRow>

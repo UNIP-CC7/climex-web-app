@@ -62,15 +62,15 @@ export const RiskRow = styled.div`
     padding: 2px 8px;
     border-radius: 6px;
   }
-  .n5 {
+  .critico {
     background: ${({ theme }) => theme.colors.danger};
     color: #fff;
   }
-  .n4 {
+  .alto {
     background: rgba(238, 138, 63, 0.25);
     color: #ffc08c;
   }
-  .n3 {
+  .medio {
     background: rgba(232, 176, 74, 0.2);
     color: #f3cf86;
   }

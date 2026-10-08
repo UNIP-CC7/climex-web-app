@@ -1,6 +1,6 @@
 import { DownloadSimple, Printer } from '@phosphor-icons/react'
 import { Btn, ErrorMsg, Grid, Note, Page, Panel, PanelHead, Skeleton, Table, TableWrap } from '@/components/ui'
-import { RESCUE_TYPE_LABEL, type RescueType } from '@/domain/types'
+import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, type RescueType } from '@/domain/types'
 import { fmt, minutesAgo, toCsv } from '@/lib/format'
 import { useAlerts, useRescue, useShelters } from '@/lib/queries'
 import { Kpi, Kpis } from './styles'
@@ -50,7 +50,8 @@ export default function ReportsScreen() {
         all.map((r) => ({
           id: r.id,
           tipo: RESCUE_TYPE_LABEL[r.type],
-          nivel_risco: r.risk,
+          nivel_risco: r.risk.score,
+          faixa_risco: RISK_BAND_LABEL[r.risk.band],
           sos: r.sos ? 'sim' : 'nao',
           situacao: r.status,
           bairro: r.neighborhood,
