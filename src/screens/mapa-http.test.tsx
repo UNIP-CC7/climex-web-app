@@ -11,6 +11,8 @@ vi.mock('@/components/map', async () => {
     BaseMap: ({ children }: { children?: unknown }) => createElement('div', { 'data-testid': 'mapa' }, children as never),
     AlertLayer: () => null,
     HeatLayer: () => null,
+    AlertHeatLayer: () => null,
+    FitCircle: () => null,
     RescueLayer: () => null,
     ShelterLayer: ({ shelters, candidate }: { shelters: unknown[]; candidate?: boolean }) =>
       createElement('span', { 'data-testid': candidate ? 'candidatos-no-mapa' : 'abrigos-no-mapa' }, String(shelters.length)),

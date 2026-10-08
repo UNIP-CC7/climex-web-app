@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Circle, useMapEvents } from 'react-leaflet'
-import { AlertLayer, BaseMap, SEVERITY_COLOR } from '@/components/map'
+import { AlertLayer, BaseMap, FitCircle, SEVERITY_COLOR } from '@/components/map'
 import {
   ActionError,
   Btn,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui'
 import { SEVERITY_LABEL, type LatLng, type Severity } from '@/domain/types'
 import { clock } from '@/lib/format'
+import { formatRadius, formatRadiusInput, kmToSlider, parseRadiusKm, sliderToKm } from '@/lib/radius'
 import { useAlerts, useCloseAlert, useCreateAlert } from '@/lib/queries'
 import { CENTER } from '@/mocks/seed'
 import { Split } from './styles'
@@ -35,10 +36,15 @@ export default function AlertsScreen() {
   const close = useCloseAlert()
   const [center, setCenter] = useState<LatLng>(CENTER)
   const [radius, setRadius] = useState(1.2)
+  const [radiusText, setRadiusText] = useState('1,2')
   const [severity, setSeverity] = useState<Severity>('ALERTA')
+
+  // o campo exato tem que ser um número: senão o alerta sairia com um raio diferente do que está escrito
+  const radiusInvalid = parseRadiusKm(radiusText) == null
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (radiusInvalid) return
     const form = e.currentTarget // depois do await o evento já perdeu o currentTarget
     const f = new FormData(form)
     create.mutate(
@@ -86,12 +92,43 @@ export default function AlertsScreen() {
               </select>
             </Field>
             <Field>
-              Raio da área: {radius.toFixed(1).replace('.', ',')} km
-              <input type="range" min={0.3} max={4} step={0.1} value={radius} onChange={(e) => setRadius(Number(e.target.value))} />
+              Raio da área: {formatRadius(radius)}
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step="any"
+                value={kmToSlider(radius)}
+                aria-valuetext={formatRadius(radius)}
+                onChange={(e) => {
+                  const km = sliderToKm(Number(e.target.value))
+                  setRadius(km)
+                  setRadiusText(formatRadiusInput(km))
+                }}
+              />
+            </Field>
+            <Field>
+              Raio exato (km)
+              <input
+                inputMode="decimal"
+                aria-label="Raio exato em quilômetros"
+                aria-invalid={radiusInvalid}
+                value={radiusText}
+                onChange={(e) => {
+                  setRadiusText(e.target.value)
+                  const km = parseRadiusKm(e.target.value)
+                  if (km != null) setRadius(km)
+                }}
+                onBlur={() => setRadiusText(formatRadiusInput(radius))}
+              />
+              <span style={{ color: radiusInvalid ? '#ff8a8a' : '#9db3cf', fontSize: 12 }} role={radiusInvalid ? 'alert' : undefined}>
+                {radiusInvalid ? 'Digite um número entre 0,5 e 50.' : 'De 500 m (0,5) a 50 km.'}
+              </span>
             </Field>
             <div className="full" style={{ height: 260, borderRadius: 8, overflow: 'hidden' }}>
               <BaseMap height={260} zoom={12} wheel>
                 <Picker onPick={setCenter} />
+                <FitCircle center={center} radiusMeters={radius * 1000} />
                 <Circle
                   center={center}
                   radius={radius * 1000}
@@ -103,7 +140,7 @@ export default function AlertsScreen() {
               Clique no mapa para posicionar o centro da área afetada.
             </p>
             <div className="full">
-              <Btn type="submit" disabled={create.isPending}>
+              <Btn type="submit" disabled={create.isPending || radiusInvalid}>
                 {create.isPending ? 'Emitindo...' : 'Emitir alerta'}
               </Btn>
             </div>
