@@ -19,7 +19,9 @@ vi.mock('@/components/map', async () => {
   return {
     BaseMap: ({ children }: { children?: unknown }) => createElement('div', { 'data-testid': 'mapa' }, children as never),
     AlertLayer: () => null,
-    HeatLayer: () => null,
+    HeatLayer: () => createElement('i', { 'data-testid': 'camada-calor' }),
+    AlertHeatLayer: () => null,
+    FitCircle: () => null,
     RescueLayer: () => null,
     ShelterLayer: ({ shelters }: { shelters: unknown[] }) => createElement('span', { 'data-testid': 'abrigos-no-mapa' }, String(shelters.length)),
     SEVERITY_COLOR: { OBSERVACAO: '#1', ATENCAO: '#2', ALERTA: '#3', ALERTA_MAXIMO: '#4' },
@@ -58,6 +60,18 @@ describe('Painel', () => {
     expect(screen.getByText(/Crítico · /)).toBeInTheDocument()
     expect(await screen.findByText(/vagas livres de/)).toBeInTheDocument()
     expect(screen.getByText('Chuva intensa e risco de enchente, Fazendinha')).toBeInTheDocument()
+  })
+
+  it('o mapa de calor é opcional e começa desligado', async () => {
+    loginAs('GESTOR')
+    renderWithApp(<Dashboard />)
+    const caixa = (await screen.findByLabelText('Mapa de calor')) as HTMLInputElement
+    expect(caixa.checked).toBe(false)
+    expect(screen.queryByTestId('camada-calor')).not.toBeInTheDocument()
+    fireEvent.click(caixa)
+    expect(screen.getByTestId('camada-calor')).toBeInTheDocument()
+    fireEvent.click(caixa)
+    expect(screen.queryByTestId('camada-calor')).not.toBeInTheDocument()
   })
 
   it('aceitar uma solicitação tira o contador de abertas', async () => {
@@ -177,6 +191,50 @@ describe('Alertas', () => {
     const antes = screen.getAllByRole('button', { name: 'Encerrar' }).length
     fireEvent.click(screen.getAllByRole('button', { name: 'Encerrar' })[0])
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Encerrar' })).toHaveLength(antes - 1))
+  })
+})
+
+describe('Raio do alerta', () => {
+  const rotulo = () => screen.getByText(/Raio da área:/)
+
+  it('vai de 500 m a 50 km pelo controle', async () => {
+    loginAs('GESTOR')
+    renderWithApp(<Alerts />)
+    await screen.findByText(/Raio da área:/)
+    expect(rotulo()).toHaveTextContent('1,2 km')
+    const slider = screen.getByRole('slider')
+    fireEvent.change(slider, { target: { value: '0' } })
+    expect(rotulo()).toHaveTextContent('500 m')
+    expect(screen.getByLabelText('Raio exato em quilômetros')).toHaveValue('0,5')
+    fireEvent.change(slider, { target: { value: '1' } })
+    expect(rotulo()).toHaveTextContent('50 km')
+    expect(screen.getByLabelText('Raio exato em quilômetros')).toHaveValue('50')
+  })
+
+  it('o campo exato arredonda a 100 m, respeita os limites e o texto inválido bloqueia o envio', async () => {
+    loginAs('GESTOR')
+    renderWithApp(<Alerts />)
+    await screen.findByText(/Raio da área:/)
+    const campo = screen.getByLabelText('Raio exato em quilômetros')
+    const emitir = screen.getByRole('button', { name: 'Emitir alerta' })
+
+    fireEvent.change(campo, { target: { value: '12,54' } })
+    expect(rotulo()).toHaveTextContent('12,5 km')
+    expect(emitir).toBeEnabled()
+    fireEvent.change(campo, { target: { value: '9999' } })
+    expect(rotulo()).toHaveTextContent('50 km')
+    fireEvent.change(campo, { target: { value: '0,1' } })
+    expect(rotulo()).toHaveTextContent('500 m')
+
+    fireEvent.change(campo, { target: { value: 'abc' } })
+    expect(campo).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText('Digite um número entre 0,5 e 50.')).toBeInTheDocument()
+    expect(emitir).toBeDisabled()
+    fireEvent.change(campo, { target: { value: '' } })
+    expect(emitir).toBeDisabled()
+    fireEvent.change(campo, { target: { value: '3' } })
+    expect(emitir).toBeEnabled()
+    expect(rotulo()).toHaveTextContent('3 km')
   })
 })
 

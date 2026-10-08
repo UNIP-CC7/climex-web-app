@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, CloudRain, HouseLine, Lifebuoy, PersonSimpleRun, Waves, Warning, WarningOctagon, Wind } from '@phosphor-icons/react'
-import { AlertLayer, BaseMap, RescueLayer, ShelterLayer } from '@/components/map'
+import { AlertHeatLayer, AlertLayer, BaseMap, HeatLayer, RescueLayer, ShelterLayer } from '@/components/map'
 import {
   Btn,
   Empty,
@@ -35,6 +36,8 @@ function km(a: number, b: number, c: number, d: number) {
 
 export default function DashboardScreen() {
   const navigate = useNavigate()
+  const [heat, setHeat] = useState(false)
+  const [alertHeat, setAlertHeat] = useState(false)
   const { user } = useAuth()
   const summary = useSummary()
   const alerts = useAlerts()
@@ -116,6 +119,14 @@ export default function DashboardScreen() {
           <PanelHead>
             <h2>Situação no território</h2>
             <span className="sp" />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+              <input type="checkbox" checked={heat} onChange={(e) => setHeat(e.target.checked)} />
+              Mapa de calor
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+              <input type="checkbox" checked={alertHeat} onChange={(e) => setAlertHeat(e.target.checked)} />
+              Densidade de alertas
+            </label>
             <LinkBtn onClick={() => navigate('/mapa')}>
               Abrir mapa completo
               <ArrowRight size={14} />
@@ -124,6 +135,8 @@ export default function DashboardScreen() {
           <div style={{ flex: 1, minHeight: 420 }}>
             <BaseMap height="100%" zoom={12} center={[-23.428, -46.89]}>
               <AlertLayer alerts={active} />
+              {heat && <HeatLayer items={rescue.data ?? []} />}
+              {alertHeat && <AlertHeatLayer alerts={alerts.data ?? []} />}
               <ShelterLayer shelters={nearby} />
               <RescueLayer items={rescue.data ?? []} />
             </BaseMap>

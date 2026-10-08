@@ -14,6 +14,8 @@ vi.mock('@/components/map', async () => {
     BaseMap: () => createElement('div'),
     AlertLayer: () => null,
     HeatLayer: () => null,
+    AlertHeatLayer: () => null,
+    FitCircle: () => null,
     RescueLayer: () => null,
     ShelterLayer: () => null,
     SEVERITY_COLOR: { OBSERVACAO: '#1', ATENCAO: '#2', ALERTA: '#3', ALERTA_MAXIMO: '#4' },
