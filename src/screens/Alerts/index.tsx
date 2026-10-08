@@ -57,7 +57,7 @@ export default function AlertsScreen() {
   return (
     <Page>
       <Split>
-        <Panel>
+        <Panel role="region" aria-label="Novo alerta">
           <PanelHead>
             <h2>Novo alerta</h2>
           </PanelHead>
@@ -110,7 +110,7 @@ export default function AlertsScreen() {
           </FormGrid>
         </Panel>
 
-        <Panel>
+        <Panel role="region" aria-label="Alertas">
           <PanelHead>
             <h2>Alertas</h2>
           </PanelHead>
