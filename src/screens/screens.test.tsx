@@ -243,7 +243,6 @@ describe('Relatórios', () => {
     const createObjectURL = vi.fn(() => 'blob:fake')
     const revokeObjectURL = vi.fn()
     vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL }))
-    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 
     loginAs('GESTOR')
@@ -253,8 +252,12 @@ describe('Relatórios', () => {
     fireEvent.click(screen.getByRole('button', { name: /Exportar CSV/ }))
     expect(createObjectURL).toHaveBeenCalledOnce()
     expect(click).toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: /Imprimir ou salvar em PDF/ }))
-    expect(print).toHaveBeenCalled()
+    createObjectURL.mockClear()
+    click.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: /Exportar PDF/ }))
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalledOnce(), { timeout: 15000 })
+    expect((createObjectURL.mock.calls[0] as unknown[])[0]).toBeInstanceOf(Blob)
+    expect(click).toHaveBeenCalled()
   })
 })
 
