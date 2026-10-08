@@ -33,7 +33,7 @@ export default function AuditScreen() {
                     <td>
                       {e.author}
                       <small>
-                        {ROLE_LABEL[e.role]} · {e.ip}
+                        {e.role ? ROLE_LABEL[e.role] : 'Sem perfil'} · {e.ip}
                       </small>
                     </td>
                     <td>{e.action}</td>
@@ -50,8 +50,8 @@ export default function AuditScreen() {
         )}
       </Panel>
       <Note>
-        Cada registro guarda o hash do anterior, formando uma cadeia. Aqui o hash é ilustrativo. A verificação de integridade real será feita pela API
-        (SHA-256 encadeado).
+        Cada registro guarda o hash do anterior, formando uma cadeia. No modo simulado o hash é ilustrativo. No modo HTTP ele vem da API (SHA-256
+        encadeado).
       </Note>
     </Page>
   )

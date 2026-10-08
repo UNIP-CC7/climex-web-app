@@ -1,7 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import { Circle, useMapEvents } from 'react-leaflet'
 import { AlertLayer, BaseMap, SEVERITY_COLOR } from '@/components/map'
-import { Btn, Empty, ErrorMsg, Field, FormGrid, Page, Panel, PanelHead, SeverityBadge, Skeleton, Table, TableWrap } from '@/components/ui'
+import {
+  ActionError,
+  Btn,
+  Empty,
+  ErrorMsg,
+  Field,
+  FormGrid,
+  Page,
+  Panel,
+  PanelHead,
+  SeverityBadge,
+  Skeleton,
+  Table,
+  TableWrap,
+} from '@/components/ui'
 import { SEVERITY_LABEL, type LatLng, type Severity } from '@/domain/types'
 import { clock } from '@/lib/format'
 import { useAlerts, useCloseAlert, useCreateAlert } from '@/lib/queries'
@@ -47,6 +61,7 @@ export default function AlertsScreen() {
           <PanelHead>
             <h2>Novo alerta</h2>
           </PanelHead>
+          <ActionError error={create.error} />
           <FormGrid onSubmit={submit}>
             <Field className="full">
               Descrição
@@ -99,6 +114,7 @@ export default function AlertsScreen() {
           <PanelHead>
             <h2>Alertas</h2>
           </PanelHead>
+          <ActionError error={close.error} />
           {isPending ? (
             <Skeleton rows={4} h={36} />
           ) : isError ? (
@@ -129,7 +145,7 @@ export default function AlertsScreen() {
                         </small>
                       </td>
                       <td className="mono">
-                        {clock(a.issuedAt)} a {clock(a.expiresAt)}
+                        {clock(a.issuedAt)} a {a.expiresAt ? clock(a.expiresAt) : 'sem prazo'}
                       </td>
                       <td>
                         {a.active ? (

@@ -19,6 +19,16 @@ describe('sessão', () => {
     expect(localStorage.getItem('climex.session')).toBeNull()
   })
 
+  it('entrar e sair apagam o cache salvo, para um perfil não herdar dados do outro', () => {
+    localStorage.setItem('climex.cache', '{"dados":"do perfil anterior"}')
+    useAuth.getState().signIn(user)
+    expect(localStorage.getItem('climex.cache')).toBeNull()
+
+    localStorage.setItem('climex.cache', '{"dados":"desta sessão"}')
+    useAuth.getState().signOut()
+    expect(localStorage.getItem('climex.cache')).toBeNull()
+  })
+
   it('segue em memória quando o armazenamento do navegador está bloqueado', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('bloqueado')

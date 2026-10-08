@@ -1,9 +1,8 @@
 import type { Alert, AppUser, AuditEntry, DashboardSummary, LatLng, RescueRequest, RescueStatus, Role, Severity, Shelter } from '@/domain/types'
 
 /**
- * Contratos de serviço do painel. Hoje existe só a implementação simulada (services/mock).
- * Quando a API estiver publicada, basta criar services/http com as mesmas assinaturas
- * e escolher em services/index.ts (VITE_USE_MOCKS=false).
+ * Contratos de serviço do painel. Há duas implementações com as mesmas assinaturas:
+ * services/mock (dados simulados) e services/http (climex-api). A escolha fica em services/index.ts (VITE_USE_MOCKS).
  */
 export interface SessionUser {
   id: string
@@ -11,7 +10,12 @@ export interface SessionUser {
   role: Role
 }
 export interface AuthService {
+  /** Modo simulado: entra direto com o perfil escolhido. */
   login(role: Role): Promise<SessionUser>
+  /** Modo HTTP: telefone e senha. Recusa o cidadão, que usa só o aplicativo. */
+  loginWithPassword(phone: string, password: string): Promise<SessionUser>
+  /** Revoga a sessão no servidor (se houver). Apagar a sessão local é do signOut do store. */
+  logout(): Promise<void>
 }
 export interface AlertsService {
   list(): Promise<Alert[]>

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router-dom'
 import { ThemeProvider } from 'styled-components'
 import { useAuth } from '@/features/auth/store'
@@ -57,13 +57,17 @@ describe('rotas e perfis', () => {
     await waitFor(() => expect(path()).toBe('/'))
   })
 
-  it('agente não acessa abrigos, alertas nem relatórios', async () => {
+  it('agente acessa abrigos, mas não alertas nem relatórios', async () => {
     loginAs('AGENTE')
     app()
     await go('/')
     await screen.findByRole('link', { name: /Socorro/ })
-    expect(screen.queryByRole('link', { name: /Abrigos/ })).not.toBeInTheDocument()
-    for (const p of ['/abrigos', '/alertas', '/relatorios']) {
+    expect(screen.getByRole('link', { name: /Abrigos/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Alertas/ })).not.toBeInTheDocument()
+    await go('/abrigos')
+    expect(await screen.findByText(/Abrigos ativos/)).toBeInTheDocument()
+    expect(path()).toBe('/abrigos')
+    for (const p of ['/alertas', '/relatorios']) {
       await go(p)
       await waitFor(() => expect(path()).toBe('/'))
     }
@@ -85,5 +89,17 @@ describe('rotas e perfis', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Sair' }))
     await waitFor(() => expect(path()).toBe('/entrar'))
     expect(useAuth.getState().user).toBeNull()
+  })
+
+  it('avisa quando está sem conexão e some quando volta', async () => {
+    loginAs('GESTOR')
+    app()
+    await go('/')
+    await screen.findByRole('link', { name: /Socorro/ })
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    act(() => onlineManager.setOnline(false))
+    expect(await screen.findByRole('status')).toHaveTextContent('Sem conexão, dados salvos')
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
   })
 })

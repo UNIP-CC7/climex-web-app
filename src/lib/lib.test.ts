@@ -1,18 +1,36 @@
 import { describe, expect, it } from 'vitest'
 import { ago, minutesAgo, toCsv } from './format'
-import { riskLevel } from './risk'
+import { byUrgency, makeRisk, riskBand, riskLevel } from './risk'
 import { ROUTE_ROLES } from '@/features/auth/store'
 
 describe('riskLevel', () => {
-  it('SOS sempre é nível 5', () => {
-    expect(riskLevel('EVACUACAO', false, null, true)).toBe(5)
+  it('SOS sempre cai na faixa crítica', () => {
+    expect(riskLevel('EVACUACAO', false, null, true).band).toBe('CRITICO')
   })
-  it('área de alerta e severidade elevam o nível', () => {
-    expect(riskLevel('EVACUACAO', false, null, false)).toBe(2)
-    expect(riskLevel('EVACUACAO', true, 'ALERTA_MAXIMO', false)).toBe(4)
+  it('área de alerta e severidade elevam a pontuação', () => {
+    expect(riskLevel('EVACUACAO', false, null, false)).toEqual({ score: 25, band: 'BAIXO' })
+    expect(riskLevel('EVACUACAO', true, 'ALERTA_MAXIMO', false)).toEqual({ score: 60, band: 'ALTO' })
   })
-  it('nunca passa de 5', () => {
-    expect(riskLevel('FERIDO', true, 'ALERTA_MAXIMO', false)).toBe(5)
+  it('nunca passa de 100', () => {
+    expect(riskLevel('DESABAMENTO', true, 'ALERTA_MAXIMO', false).score).toBeLessThanOrEqual(100)
+  })
+})
+
+describe('riskBand', () => {
+  it('usa os mesmos cortes da API', () => {
+    expect(riskBand(0)).toBe('BAIXO')
+    expect(riskBand(29)).toBe('BAIXO')
+    expect(riskBand(30)).toBe('MEDIO')
+    expect(riskBand(54)).toBe('MEDIO')
+    expect(riskBand(55)).toBe('ALTO')
+    expect(riskBand(79)).toBe('ALTO')
+    expect(riskBand(80)).toBe('CRITICO')
+    expect(riskBand(100)).toBe('CRITICO')
+  })
+  it('makeRisk limita a pontuação entre 0 e 100', () => {
+    expect(makeRisk(140)).toEqual({ score: 100, band: 'CRITICO' })
+    expect(makeRisk(-3)).toEqual({ score: 0, band: 'BAIXO' })
+    expect(makeRisk(Number.NaN)).toEqual({ score: 0, band: 'BAIXO' })
   })
 })
 
@@ -33,8 +51,21 @@ describe('permissões por rota', () => {
     expect(ROUTE_ROLES['/usuarios']).toEqual(['ADMIN'])
     expect(ROUTE_ROLES['/auditoria']).toEqual(['ADMIN'])
   })
-  it('agente não acessa abrigos nem alertas', () => {
-    expect(ROUTE_ROLES['/abrigos']).not.toContain('AGENTE')
+  it('agente edita abrigos (como a API permite), mas não emite alertas', () => {
+    expect(ROUTE_ROLES['/abrigos']).toContain('AGENTE')
     expect(ROUTE_ROLES['/alertas']).not.toContain('AGENTE')
+    expect(ROUTE_ROLES['/relatorios']).not.toContain('AGENTE')
+  })
+})
+
+describe('byUrgency', () => {
+  const r = (score: number, distanceKm: number | null) => ({ risk: makeRisk(score), distanceKm })
+  it('maior pontuação primeiro, mesmo dentro da mesma faixa', () => {
+    expect([r(55, 1), r(79, 5), r(60, 2)].sort(byUrgency).map((x) => x.risk.score)).toEqual([79, 60, 55])
+  })
+  it('em empate vence a mais perto e sem distância fica por último', () => {
+    const sorted = [r(70, null), r(70, 4), r(70, 1)].sort(byUrgency)
+    expect(sorted.map((x) => x.distanceKm)).toEqual([1, 4, null])
+    expect(byUrgency(r(70, null), r(70, null))).toBe(0)
   })
 })

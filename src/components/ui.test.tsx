@@ -9,14 +9,24 @@ describe('componentes de interface', () => {
     expect(screen.getByText('Alerta Máximo')).toBeInTheDocument()
   })
 
-  it('selo de risco mostra o nível e o SOS', () => {
-    renderWithApp(<RiskBadge risk={5} sos />)
-    expect(screen.getByLabelText('Nível de risco 5')).toHaveTextContent('5')
+  it('selo de risco mostra a pontuação, a faixa e o SOS', () => {
+    renderWithApp(<RiskBadge risk={{ score: 92, band: 'CRITICO' }} sos />)
+    expect(screen.getByLabelText('Nível de risco 92, Crítico')).toHaveTextContent('92')
     expect(screen.getByText('SOS')).toBeInTheDocument()
   })
 
+  it.each([
+    [92, 'CRITICO', 'Crítico'],
+    [60, 'ALTO', 'Alto'],
+    [40, 'MEDIO', 'Médio'],
+    [10, 'BAIXO', 'Baixo'],
+  ] as const)('selo de risco %i mostra a faixa por escrito (%s)', (score, band, label) => {
+    renderWithApp(<RiskBadge risk={{ score, band }} />)
+    expect(screen.getByLabelText(`Nível de risco ${score}, ${label}`)).toHaveTextContent(`${score}${label}`)
+  })
+
   it('selo de risco sem SOS não mostra a etiqueta', () => {
-    renderWithApp(<RiskBadge risk={2} />)
+    renderWithApp(<RiskBadge risk={{ score: 20, band: 'BAIXO' }} />)
     expect(screen.queryByText('SOS')).not.toBeInTheDocument()
   })
 

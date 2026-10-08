@@ -190,6 +190,7 @@ export const SubTitle = styled.div`
   }
 `
 export const Pill = styled.span<{ $live?: boolean }>`
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 8px;

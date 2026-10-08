@@ -14,7 +14,8 @@
     "prepare": "husky",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage && npm run build"
   },
   "config": {
     "commitizen": {
@@ -23,7 +24,9 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
+    "@tanstack/query-sync-storage-persister": "^5.104.1",
     "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-query-persist-client": "^5.104.1",
     "leaflet": "^1.9.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
