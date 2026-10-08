@@ -1,14 +1,27 @@
-import { Btn, ErrorMsg, Page, Panel, Skeleton, Table, TableWrap } from '@/components/ui'
+import { Btn, Empty, ErrorMsg, Page, Panel, Skeleton, Table, TableWrap } from '@/components/ui'
 import { ROLE_LABEL, type Role } from '@/domain/types'
 import { useAuth } from '@/features/auth/store'
 import { ago } from '@/lib/format'
 import { useSetUserActive, useSetUserRole, useUsers } from '@/lib/queries'
+import { capabilities } from '@/services'
 
 export default function UsersScreen() {
   const { user } = useAuth()
   const { data, isPending, isError, error } = useUsers()
   const setRole = useSetUserRole()
   const setActive = useSetUserActive()
+
+  if (!capabilities.listUsers)
+    return (
+      <Page>
+        <Panel>
+          <Empty
+            title="A API ainda não lista usuários"
+            hint="Falta a rota GET /admin/users. Sem ela o painel não tem de onde tirar os usuários para trocar o perfil ou desativar contas. Esta tela volta a funcionar quando a rota existir."
+          />
+        </Panel>
+      </Page>
+    )
 
   return (
     <Page>

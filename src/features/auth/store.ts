@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Role } from '@/domain/types'
 import { clearPersistedCache } from '@/lib/persist'
+import { SESSION_EXPIRED_EVENT, browserTokens } from '@/services/http/session'
 import type { SessionUser } from '@/services/types'
 
 const KEY = 'climex.session'
@@ -37,10 +38,21 @@ export const useAuth = create<AuthState>((set) => ({
   },
   signOut: () => {
     clearPersistedCache()
+    browserTokens.clear()
     write(null)
     set({ user: null })
   },
 }))
+
+// outra aba entrou ou saiu: esta aba acompanha, senão ficaria mostrando o usuário antigo até a próxima chamada falhar
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === KEY || e.key === null) useAuth.setState({ user: read() })
+  })
+}
+
+// a renovação do token falhou: a sessão acabou, volta para o login
+if (typeof window !== 'undefined') window.addEventListener(SESSION_EXPIRED_EVENT, () => useAuth.getState().signOut())
 
 /** Quem pode ver o quê. Cidadão não acessa o painel (usa o app mobile). */
 export const ROUTE_ROLES: Record<string, Role[]> = {

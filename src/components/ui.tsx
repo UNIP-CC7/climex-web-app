@@ -1,6 +1,6 @@
 import styled, { keyframes } from 'styled-components'
 
-import { SEVERITY_LABEL, type RiskLevel, type Severity } from '@/domain/types'
+import { RISK_BAND_LABEL, SEVERITY_LABEL, type Risk, type RiskBand, type Severity } from '@/domain/types'
 
 const rise = keyframes`from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none }`
 const shimmer = keyframes`from { background-position: 200% 0 } to { background-position: -200% 0 }`
@@ -159,16 +159,17 @@ const SevTag = styled.span<{ $s: Severity }>`
 `
 export const SeverityBadge = ({ severity }: { severity: Severity }) => <SevTag $s={severity}>{SEVERITY_LABEL[severity]}</SevTag>
 
-const RISK_STYLE: Record<RiskLevel, [string, string]> = {
-  5: ['#E24B4A', '#fff'],
-  4: ['rgba(238,138,63,.25)', '#ffc08c'],
-  3: ['rgba(232,176,74,.2)', '#f3cf86'],
-  2: ['rgba(127,182,255,.18)', '#7fb6ff'],
-  1: ['rgba(202,230,255,.1)', '#9db3cf'],
+const RISK_STYLE: Record<RiskBand, [string, string]> = {
+  CRITICO: ['#E24B4A', '#fff'],
+  ALTO: ['rgba(238,138,63,.25)', '#ffc08c'],
+  MEDIO: ['rgba(232,176,74,.2)', '#f3cf86'],
+  BAIXO: ['rgba(127,182,255,.18)', '#7fb6ff'],
 }
-const RiskTag = styled.span<{ $r: RiskLevel }>`
-  display: inline-grid;
-  place-items: center;
+const RiskTag = styled.span<{ $r: RiskBand }>`
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
   min-width: 40px;
   padding: 4px 8px;
   border-radius: 8px;
@@ -176,6 +177,10 @@ const RiskTag = styled.span<{ $r: RiskLevel }>`
   font-family: ${({ theme }) => theme.font.mono};
   background: ${({ $r }) => RISK_STYLE[$r][0]};
   color: ${({ $r }) => RISK_STYLE[$r][1]};
+  small {
+    font-family: ${({ theme }) => theme.font.sans};
+    font-size: 11px;
+  }
 `
 const SosTag = styled.span`
   margin-left: 6px;
@@ -186,10 +191,11 @@ const SosTag = styled.span`
   padding: 2px 6px;
   border-radius: 5px;
 `
-export const RiskBadge = ({ risk, sos }: { risk: RiskLevel; sos?: boolean }) => (
+export const RiskBadge = ({ risk, sos }: { risk: Risk; sos?: boolean }) => (
   <span>
-    <RiskTag $r={risk} aria-label={`Nível de risco ${risk}`}>
-      {risk}
+    <RiskTag $r={risk.band} aria-label={`Nível de risco ${risk.score}, ${RISK_BAND_LABEL[risk.band]}`}>
+      {risk.score}
+      <small>{RISK_BAND_LABEL[risk.band]}</small>
     </RiskTag>
     {sos && <SosTag>SOS</SosTag>}
   </span>

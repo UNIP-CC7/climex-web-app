@@ -1,4 +1,4 @@
-import type { Alert, AppUser, DashboardSummary, RescueRequest, RiskLevel, Role, Shelter, ShelterKind } from '@/domain/types'
+import type { Alert, AppUser, DashboardSummary, RescueRequest, RiskBand, Role, Shelter, ShelterKind } from '@/domain/types'
 import { ALERTS, AUDIT, CENTER, RESCUE, USERS, area, fakeHash } from '@/mocks/seed'
 import type { Services } from '../types'
 
@@ -97,13 +97,15 @@ function loadShelters(): Promise<Shelter[]> {
   return sheltersCache
 }
 
-const EMPTY_RISK: Record<RiskLevel, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+const EMPTY_RISK: Record<RiskBand, number> = { CRITICO: 0, ALTO: 0, MEDIO: 0, BAIXO: 0 }
 const SEV_ORDER = { OBSERVACAO: 0, ATENCAO: 1, ALERTA: 2, ALERTA_MAXIMO: 3 } as const
 
 export const mockServices: Services = {
   auth: {
     login: (role) =>
       delay({ id: `sess-${role}`, role, name: { AGENTE: 'Renata Lopes', GESTOR: 'Marcos Cavalcante', ADMIN: 'Diego Arruda' }[role] }, 250),
+    loginWithPassword: () => Promise.reject(new Error('O modo simulado não tem login por senha. Escolha um perfil.')),
+    logout: () => Promise.resolve(),
   },
   alerts: {
     list: () => delay([...alerts].sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])),
@@ -172,7 +174,7 @@ export const mockServices: Services = {
       const open = rescue.filter((r) => r.status === 'ABERTA')
       const active = shelters.filter((s) => s.status === 'ATIVO')
       const byRisk = { ...EMPTY_RISK }
-      open.forEach((r) => byRisk[r.risk]++)
+      open.forEach((r) => byRisk[r.risk.band]++)
       const attending = rescue.filter((r) => r.status === 'EM_ATENDIMENTO')
       return delay({
         activeAlerts: act.length,
@@ -185,6 +187,7 @@ export const mockServices: Services = {
         spotsTotal: active.reduce((n, s) => n + s.capacity, 0),
         agentsInField: users.filter((u) => u.role === 'AGENTE' && u.active).length,
         agentsAttending: new Set(attending.map((r) => r.assignedTo)).size,
+        simulated: true,
         updatedAt: new Date().toISOString(),
       })
     },

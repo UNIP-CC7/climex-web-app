@@ -3,9 +3,11 @@ import { Btn, Chip, Empty, ErrorMsg, Note, Page, Panel, RiskBadge, Skeleton, Tab
 import { RESCUE_STATUS_LABEL, RESCUE_TYPE_LABEL, type RescueRequest } from '@/domain/types'
 import { useAuth } from '@/features/auth/store'
 import { ago } from '@/lib/format'
+import { byUrgency } from '@/lib/risk'
 import { useRescue, useSetRescueStatus } from '@/lib/queries'
 
-type Filter = 'ABERTA' | 'EM_ATENDIMENTO' | 'CONCLUIDA' | 'SOS'
+type Filter = 'ABERTA' | 'EM_ATENDIMENTO' | 'CONCLUIDA' | 'CANCELADA' | 'SOS'
+const isClosed = (r: RescueRequest) => r.status === 'CONCLUIDA' || r.status === 'CANCELADA'
 
 export default function RescueScreen() {
   const { user } = useAuth()
@@ -14,12 +16,9 @@ export default function RescueScreen() {
   const [filter, setFilter] = useState<Filter>('ABERTA')
   const agent = user?.name ?? 'Agente'
 
-  const count = (f: Filter) => (data ?? []).filter((r) => (f === 'SOS' ? r.sos && r.status !== 'CONCLUIDA' : r.status === f)).length
+  const count = (f: Filter) => (data ?? []).filter((r) => (f === 'SOS' ? r.sos && !isClosed(r) : r.status === f)).length
   const rows = useMemo(
-    () =>
-      (data ?? [])
-        .filter((r) => (filter === 'SOS' ? r.sos && r.status !== 'CONCLUIDA' : r.status === filter))
-        .sort((a, b) => b.risk - a.risk || a.distanceKm - b.distanceKm),
+    () => (data ?? []).filter((r) => (filter === 'SOS' ? r.sos && !isClosed(r) : r.status === filter)).sort(byUrgency),
     [data, filter],
   )
 
@@ -27,6 +26,7 @@ export default function RescueScreen() {
     ['ABERTA', 'Abertas'],
     ['EM_ATENDIMENTO', 'Em atendimento'],
     ['CONCLUIDA', 'Concluídas'],
+    ['CANCELADA', 'Canceladas'],
     ['SOS', 'Somente SOS'],
   ]
 
@@ -48,7 +48,7 @@ export default function RescueScreen() {
         </Btn>
       )
     }
-    return <span style={{ color: '#9db3cf' }}>{r.outcome ?? 'Concluída'}</span>
+    return <span style={{ color: '#9db3cf' }}>{r.outcome ?? RESCUE_STATUS_LABEL[r.status]}</span>
   }
 
   return (
@@ -91,15 +91,13 @@ export default function RescueScreen() {
                     <td>{RESCUE_TYPE_LABEL[r.type]}</td>
                     <td>
                       {r.address}
-                      <small>
-                        {r.neighborhood}
-                        {r.inAlertArea ? ', dentro de área de alerta' : ''}
-                      </small>
+                      <small>{[r.neighborhood, r.inAlertArea ? 'dentro de área de alerta' : ''].filter(Boolean).join(', ')}</small>
                     </td>
                     <td>
-                      {r.requesterName}, {r.people} {r.people === 1 ? 'pessoa' : 'pessoas'}
+                      {r.requesterName ? `${r.requesterName}, ` : ''}
+                      {r.people} {r.people === 1 ? 'pessoa' : 'pessoas'}
                     </td>
-                    <td className="mono">{r.distanceKm.toFixed(1).replace('.', ',')} km</td>
+                    <td className="mono">{r.distanceKm == null ? '-' : `${r.distanceKm.toFixed(1).replace('.', ',')} km`}</td>
                     <td className="mono">{ago(r.openedAt)}</td>
                     <td>
                       {RESCUE_STATUS_LABEL[r.status]}
@@ -114,8 +112,8 @@ export default function RescueScreen() {
         )}
       </Panel>
       <Note>
-        Ordenada por nível de risco e, em empate, pela distância até o agente. O nível aqui é calculado por uma regra de exemplo, a regra real virá da
-        API. Dados simulados.
+        Ordenada por nível de risco e, em empate, pela distância até o agente. Nível de risco de 0 a 100, nas faixas Baixo, Médio, Alto e Crítico. No
+        modo simulado o valor vem de uma regra de exemplo, no modo HTTP vem da API. Dados simulados.
       </Note>
     </Page>
   )

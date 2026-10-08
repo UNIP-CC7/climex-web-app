@@ -55,7 +55,7 @@ describe('Painel', () => {
     renderWithApp(<Dashboard />)
     expect(await screen.findByText('Maior: Alerta Máximo, Fazendinha')).toBeInTheDocument()
     expect(screen.getAllByText('Aceitar')).toHaveLength(3)
-    expect(screen.getByText(/NR5/)).toBeInTheDocument()
+    expect(screen.getByText(/Crítico · /)).toBeInTheDocument()
     expect(await screen.findByText(/vagas livres de/)).toBeInTheDocument()
     expect(screen.getByText('Chuva intensa e risco de enchente, Fazendinha')).toBeInTheDocument()
   })

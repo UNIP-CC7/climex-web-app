@@ -2,7 +2,16 @@ import type { ReactNode } from 'react'
 import L from 'leaflet'
 import { CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
-import { RESCUE_TYPE_LABEL, SEVERITY_LABEL, type Alert, type LatLng, type RescueRequest, type Severity, type Shelter } from '@/domain/types'
+import {
+  RESCUE_TYPE_LABEL,
+  SEVERITY_LABEL,
+  type Alert,
+  type LatLng,
+  type RescueRequest,
+  type RiskBand,
+  type Severity,
+  type Shelter,
+} from '@/domain/types'
 import { theme } from '@/theme'
 import { CENTER } from '@/mocks/seed'
 import { clock } from '@/lib/format'
@@ -94,23 +103,28 @@ export function ShelterLayer({ shelters }: { shelters: Shelter[] }) {
   )
 }
 
-const RISK_COLOR = (r: number) => (r >= 5 ? theme.colors.severity.max : r === 4 ? theme.colors.severity.alr : theme.colors.severity.atn)
+const RISK_COLOR: Record<RiskBand, string> = {
+  CRITICO: theme.colors.severity.max,
+  ALTO: theme.colors.severity.alr,
+  MEDIO: theme.colors.severity.atn,
+  BAIXO: theme.colors.severity.obs,
+}
 
 export function RescueLayer({ items }: { items: RescueRequest[] }) {
   return (
     <>
       {items
-        .filter((r) => r.status !== 'CONCLUIDA')
+        .filter((r) => r.status === 'ABERTA' || r.status === 'EM_ATENDIMENTO')
         .map((r) => (
           <CircleMarker
             key={r.id}
             center={[r.lat, r.lng]}
             radius={9}
-            pathOptions={{ color: '#fff', weight: 2, fillColor: RISK_COLOR(r.risk), fillOpacity: 1 }}
+            pathOptions={{ color: '#fff', weight: 2, fillColor: RISK_COLOR[r.risk.band], fillOpacity: 1 }}
           >
             <Popup>
               <b>
-                NR {r.risk}
+                NR {r.risk.score}
                 {r.sos ? ' (SOS)' : ''}, {RESCUE_TYPE_LABEL[r.type]}
               </b>
               <br />

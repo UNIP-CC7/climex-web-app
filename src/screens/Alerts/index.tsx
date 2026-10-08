@@ -129,7 +129,7 @@ export default function AlertsScreen() {
                         </small>
                       </td>
                       <td className="mono">
-                        {clock(a.issuedAt)} a {clock(a.expiresAt)}
+                        {clock(a.issuedAt)} a {a.expiresAt ? clock(a.expiresAt) : 'sem prazo'}
                       </td>
                       <td>
                         {a.active ? (
