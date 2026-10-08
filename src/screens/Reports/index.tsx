@@ -39,9 +39,9 @@ export default function ReportsScreen() {
   const occ = active.reduce((n, s) => n + s.occupancy, 0)
   const cap = active.reduce((n, s) => n + s.capacity, 0)
   const byType = (Object.keys(RESCUE_TYPE_LABEL) as RescueType[]).map((t) => ({ t, n: all.filter((r) => r.type === t).length }))
-  const byNb = Object.entries(all.reduce<Record<string, number>>((m, r) => ({ ...m, [r.neighborhood]: (m[r.neighborhood] ?? 0) + 1 }), {})).sort(
-    (a, b) => b[1] - a[1],
-  )
+  const byNb = Object.entries(
+    all.reduce<Record<string, number>>((m, r) => ({ ...m, [r.neighborhood || 'Sem bairro']: (m[r.neighborhood || 'Sem bairro'] ?? 0) + 1 }), {}),
+  ).sort((a, b) => b[1] - a[1])
 
   function exportCsv() {
     download(

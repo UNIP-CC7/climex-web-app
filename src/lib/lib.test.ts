@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ago, minutesAgo, toCsv } from './format'
-import { makeRisk, riskBand, riskLevel } from './risk'
+import { byUrgency, makeRisk, riskBand, riskLevel } from './risk'
 import { ROUTE_ROLES } from '@/features/auth/store'
 
 describe('riskLevel', () => {
@@ -55,5 +55,17 @@ describe('permissões por rota', () => {
     expect(ROUTE_ROLES['/abrigos']).toContain('AGENTE')
     expect(ROUTE_ROLES['/alertas']).not.toContain('AGENTE')
     expect(ROUTE_ROLES['/relatorios']).not.toContain('AGENTE')
+  })
+})
+
+describe('byUrgency', () => {
+  const r = (score: number, distanceKm: number | null) => ({ risk: makeRisk(score), distanceKm })
+  it('maior pontuação primeiro, mesmo dentro da mesma faixa', () => {
+    expect([r(55, 1), r(79, 5), r(60, 2)].sort(byUrgency).map((x) => x.risk.score)).toEqual([79, 60, 55])
+  })
+  it('em empate vence a mais perto e sem distância fica por último', () => {
+    const sorted = [r(70, null), r(70, 4), r(70, 1)].sort(byUrgency)
+    expect(sorted.map((x) => x.distanceKm)).toEqual([1, 4, null])
+    expect(byUrgency(r(70, null), r(70, null))).toBe(0)
   })
 })

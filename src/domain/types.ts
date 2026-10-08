@@ -18,7 +18,8 @@ export interface Alert {
   neighborhood: string
   polygon: LatLng[]
   issuedAt: string
-  expiresAt: string
+  /** null quando a API não informa validade */
+  expiresAt: string | null
   active: boolean
   source: 'INMET' | 'DEFESA_CIVIL' | 'MANUAL'
 }
@@ -50,11 +51,12 @@ export const RESCUE_TYPE_LABEL: Record<RescueType, string> = {
   DESABAMENTO: 'Desabamento',
   OUTROS: 'Outros',
 }
-export type RescueStatus = 'ABERTA' | 'EM_ATENDIMENTO' | 'CONCLUIDA'
+export type RescueStatus = 'ABERTA' | 'EM_ATENDIMENTO' | 'CONCLUIDA' | 'CANCELADA'
 export const RESCUE_STATUS_LABEL: Record<RescueStatus, string> = {
   ABERTA: 'Aberta',
   EM_ATENDIMENTO: 'Em atendimento',
   CONCLUIDA: 'Concluída',
+  CANCELADA: 'Cancelada',
 }
 /** Faixa de risco, a mesma que a API devolve em `riskLevel` */
 export type RiskBand = 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO'
@@ -78,8 +80,10 @@ export interface RescueRequest {
   neighborhood: string
   inAlertArea: boolean
   people: number
-  requesterName: string
-  distanceKm: number
+  /** null quando a API não informa (a lista de socorro não traz o nome de quem pediu) */
+  requesterName: string | null
+  /** null quando a API não informa a distância até o agente */
+  distanceKm: number | null
   openedAt: string
   assignedTo: string | null
   outcome: string | null
@@ -94,8 +98,11 @@ export interface DashboardSummary {
   shelterTotal: number
   spotsFree: number
   spotsTotal: number
-  agentsInField: number
+  /** null quando a API não informa quais agentes estão em campo */
+  agentsInField: number | null
   agentsAttending: number
+  /** true quando capacidade e ocupação dos abrigos são simuladas */
+  simulated: boolean
   updatedAt: string
 }
 
@@ -112,7 +119,7 @@ export interface AuditEntry {
   seq: number
   at: string
   author: string
-  role: Role
+  role: Role | null
   action: string
   entity: string
   status: number

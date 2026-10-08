@@ -55,9 +55,29 @@ O Vite lê o `.env` ao iniciar. Depois de mudar um valor, reinicie o `npm run de
 | Variável | Padrão | Para que serve |
 |---|---|---|
 | `VITE_USE_MOCKS` | `true` | Usa os serviços simulados de `src/services/mock`. Qualquer valor diferente de `false` mantém os mocks. |
-| `VITE_API_URL` | não usada | Endereço da API (por exemplo `http://localhost:3000`). **Reservada:** o painel ainda não tem cliente HTTP. |
+| `VITE_API_URL` | `http://localhost:3000` | Endereço da climex-api para o proxy do `npm run dev`. Só vale com `VITE_USE_MOCKS=false`. |
 
-Com `VITE_USE_MOCKS=false` o painel não carrega: a página fica em branco e o erro explicativo aparece no console do navegador. Isso é proposital, para ninguém achar que está falando com a API quando não está. O que falta para ligar a API real está em [`docs/contrato-api.md`](docs/contrato-api.md).
+## Rodando contra a API real
+
+Com `VITE_USE_MOCKS=false` o painel fala com a climex-api em vez de usar dados simulados. O login passa a ser por telefone e senha, e o seletor de perfil some.
+
+1. Suba a API (repositório privado `climex-api`, branch `develop`): `docker compose up db`, copie `.env.example` para `.env`, depois `npm ci`, `npx prisma generate`, `npm run db:deploy`, `npm run db:seed` e `npm run dev`. Ela sobe na porta 3000.
+2. No painel, crie o `.env` com `VITE_USE_MOCKS=false` (e `VITE_API_URL` se a API não estiver em `http://localhost:3000`).
+3. `npm run dev` e entre com um telefone do seed da API (formato `(11) 99000-0003`; a senha de demonstração está no `prisma/seed.ts` da API).
+
+O painel chama `/v1/...` no próprio endereço e o Vite repassa para `VITE_API_URL`. Assim o navegador só enxerga uma origem e o CORS não entra no caminho. Isso importa porque a API hoje só libera `GET`, `HEAD` e `POST` no CORS, o que barraria todo `PATCH` (encerrar alerta, editar abrigo, mudar status de socorro). Esse proxy existe só no `npm run dev`: sem uma API publicada, não há configuração de produção para o modo HTTP.
+
+O que muda em relação ao modo simulado:
+
+- **Perfis:** o painel bloqueia o login de cidadão (a API aceita, mas ele usa só o aplicativo).
+- **Risco:** a pontuação (`nrScore`, 0 a 100) e a faixa vêm da API.
+- **Painel (resumo):** a API não tem rota de resumo, então os números são calculados no navegador a partir das listas de alertas, abrigos e socorro. Agentes em campo aparece como `-`.
+- **Abrigos:** só os cadastrados na API (os ativos). A camada de candidatos do OpenStreetMap não entra neste modo.
+- **Socorro:** a lista da API não traz endereço, nome de quem pediu nem distância; o painel mostra a descrição e `-`.
+- **Usuários:** a tela explica que falta `GET /admin/users` e sai do menu.
+- **Sessão:** o token de acesso dura 15 minutos e o painel renova sozinho. Se a renovação falhar, volta para o login. Os tokens ficam no `localStorage` do navegador.
+
+O que falta na API e as diferenças de contrato estão em [`docs/contrato-api.md`](docs/contrato-api.md).
 
 ## Ordem de subida no monorepo (API, mobile, web)
 
@@ -87,7 +107,7 @@ O controle de acesso por rota está em `src/features/auth/store.ts` (`ROUTE_ROLE
 
 - **Abrigos candidatos:** locais reais do OpenStreetMap em todo o estado de SP (`public/data/osm-sp-estado.json`, cerca de 10 mil escolas, ginásios, centros comunitários e CRAS). Não são abrigos oficiais. © colaboradores do OpenStreetMap, licença ODbL.
 - **Capacidade, ocupação, alertas, solicitações e usuários:** simulados (`src/mocks/seed.ts` e `src/services/mock`). Recarregar a página volta tudo ao estado inicial.
-- **Nível de risco:** `src/lib/risk.ts` é uma regra de exemplo. A regra real virá da API.
+- **Nível de risco:** no modo simulado, `src/lib/risk.ts` calcula uma pontuação de 0 a 100 por uma regra de exemplo. Os cortes das faixas (Crítico a partir de 80, Alto a partir de 55, Médio a partir de 30) são os mesmos da API, que no modo HTTP devolve a pontuação pronta.
 
 ## Cache de leitura (72 horas)
 
@@ -106,7 +126,7 @@ O código está em `src/lib/persist.ts`, ligado em `src/main.tsx`.
 src/
   components/   AppShell, mapa e componentes de interface
   screens/      uma pasta por tela (index.tsx e styles.ts)
-  services/     contratos (types.ts) e implementação simulada (mock/)
+  services/     contratos (types.ts), implementação simulada (mock/) e cliente da API (http/)
   features/     sessão e permissões por rota
   domain/       tipos do domínio
   theme/        tokens de cor herdados do app mobile
@@ -114,7 +134,7 @@ docs/           contrato com a API e capturas de validação
 _layout/        mockup estático aprovado do layout
 ```
 
-Os componentes só falam com `src/services/index.ts`. Para ligar a API real, crie `src/services/http/` com as assinaturas de `src/services/types.ts` e escolha a implementação por `VITE_USE_MOCKS`.
+Os componentes só falam com `src/services/index.ts`, que escolhe `mock/` ou `http/` por `VITE_USE_MOCKS`. As duas implementações seguem as assinaturas de `src/services/types.ts`. Em `http/`, `dto.ts` guarda o formato das respostas (escrito à mão, só com os campos usados), `mappers.ts` converte para os tipos do painel e `client.ts` cuida de token, renovação e erros `problem+json`.
 
 ## Publicação
 

@@ -8,6 +8,7 @@ import 'leaflet/dist/leaflet.css'
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css'
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css'
 import { GlobalStyle } from '@/components/GlobalStyle'
+import { useAuth } from '@/features/auth/store'
 import { CACHE_MAX_AGE, persistOptions } from '@/lib/persist'
 import { router } from '@/routes'
 import { theme } from '@/theme'
@@ -17,6 +18,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: { staleTime: 15_000, gcTime: CACHE_MAX_AGE, retry: 2, retryDelay: (n) => Math.min(1000 * 2 ** n, 8000), refetchOnWindowFocus: true },
   },
+})
+
+// sair ou ter a sessão expirada esvazia o cache em memória, para o próximo login não ver dados do anterior
+useAuth.subscribe((state, prev) => {
+  if (prev.user && !state.user) queryClient.clear()
 })
 
 createRoot(document.getElementById('root')!).render(

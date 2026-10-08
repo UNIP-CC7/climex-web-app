@@ -104,6 +104,8 @@ export const mockServices: Services = {
   auth: {
     login: (role) =>
       delay({ id: `sess-${role}`, role, name: { AGENTE: 'Renata Lopes', GESTOR: 'Marcos Cavalcante', ADMIN: 'Diego Arruda' }[role] }, 250),
+    loginWithPassword: () => Promise.reject(new Error('O modo simulado não tem login por senha. Escolha um perfil.')),
+    logout: () => Promise.resolve(),
   },
   alerts: {
     list: () => delay([...alerts].sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])),
@@ -185,6 +187,7 @@ export const mockServices: Services = {
         spotsTotal: active.reduce((n, s) => n + s.capacity, 0),
         agentsInField: users.filter((u) => u.role === 'AGENTE' && u.active).length,
         agentsAttending: new Set(attending.map((r) => r.assignedTo)).size,
+        simulated: true,
         updatedAt: new Date().toISOString(),
       })
     },
