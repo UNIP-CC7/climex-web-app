@@ -294,6 +294,7 @@ export const RESCUE: RescueRequest[] = R.map((r, i) => {
     requesterName: r.who,
     distanceKm: r.km,
     openedAt: minutes(r.open),
+    resolvedAt: r.status === 'CONCLUIDA' ? minutes(Math.max(r.open - 25, 0)) : null,
     assignedTo: r.agent ?? null,
     outcome: null,
   }

@@ -86,6 +86,8 @@ export interface RescueRequest {
   /** null quando a API não informa a distância até o agente */
   distanceKm: number | null
   openedAt: string
+  /** null quando ainda não foi concluída ou quando a API não informa (hoje ela não envia a data de conclusão) */
+  resolvedAt: string | null
   assignedTo: string | null
   outcome: string | null
 }
