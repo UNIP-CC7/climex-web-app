@@ -240,6 +240,14 @@ export const ErrorMsg = ({ error }: { error: unknown }) => (
   </Msg>
 )
 
+/** Erro de uma ação do usuário (salvar, encerrar, concluir). O react-query zera o erro quando a próxima tentativa começa. */
+export const ActionError = ({ error }: { error: unknown }) =>
+  error ? (
+    <p role="alert" style={{ color: '#ff9b9a', margin: '0 0 10px' }}>
+      {error instanceof Error ? error.message : 'Não foi possível concluir a ação. Tente de novo.'}
+    </p>
+  ) : null
+
 /* ---------- formulários ---------- */
 export const Field = styled.label`
   display: grid;

@@ -1,8 +1,25 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Btn, Chip, Empty, ErrorMsg, Field, FormGrid, Note, Page, Panel, PanelHead, Skeleton, Table, TableWrap, Toolbar } from '@/components/ui'
+import {
+  ActionError,
+  Btn,
+  Chip,
+  Empty,
+  ErrorMsg,
+  Field,
+  FormGrid,
+  Note,
+  Page,
+  Panel,
+  PanelHead,
+  Skeleton,
+  Table,
+  TableWrap,
+  Toolbar,
+} from '@/components/ui'
 import type { Shelter, ShelterKind } from '@/domain/types'
 import { fmt } from '@/lib/format'
 import { useCheckIn, useShelters, useUpdateShelter } from '@/lib/queries'
+import { useMocks } from '@/services'
 import { Meter, SearchBox } from './styles'
 
 const KIND: Record<ShelterKind, string> = {
@@ -37,8 +54,14 @@ export default function SheltersScreen() {
   }, [data, view, kind, q])
   const countActive = (data ?? []).filter((s) => s.status === 'ATIVO').length
 
+  // zerar a mutation em andamento reabilitaria o Salvar e permitiria um segundo envio
+  function clearUpdateError() {
+    if (!update.isPending) update.reset()
+  }
+
   async function tryCheckIn(id: string, delta: number) {
     setFail(null)
+    clearUpdateError()
     try {
       await checkIn.mutateAsync({ id, delta })
     } catch (e) {
@@ -158,13 +181,21 @@ export default function SheltersScreen() {
               <Btn type="submit" disabled={update.isPending}>
                 Salvar
               </Btn>
-              <Btn type="button" $ghost onClick={() => setEditing(null)}>
+              <Btn
+                type="button"
+                $ghost
+                onClick={() => {
+                  clearUpdateError()
+                  setEditing(null)
+                }}
+              >
                 Cancelar
               </Btn>
             </div>
           </FormGrid>
         </Panel>
       )}
+      <ActionError error={update.error} />
       {fail && (
         <p role="alert" style={{ color: '#ff9b9a', marginBottom: 10 }}>
           {fail}
@@ -227,7 +258,14 @@ export default function SheltersScreen() {
                           </Btn>{' '}
                         </>
                       )}
-                      <Btn $ghost onClick={() => setEditing(s)}>
+                      <Btn
+                        $ghost
+                        onClick={() => {
+                          clearUpdateError()
+                          setFail(null)
+                          setEditing(s)
+                        }}
+                      >
                         Editar
                       </Btn>
                     </td>
@@ -246,8 +284,9 @@ export default function SheltersScreen() {
         )}
       </Panel>
       <Note>
-        Os candidatos vêm do OpenStreetMap (ODbL, © colaboradores do OpenStreetMap) e não são abrigos oficiais. Capacidade e ocupação são simuladas
-        até existir o cadastro da Defesa Civil.
+        {useMocks
+          ? 'Os candidatos vêm do OpenStreetMap (ODbL, © colaboradores do OpenStreetMap) e não são abrigos oficiais. Capacidade e ocupação são simuladas até existir o cadastro da Defesa Civil.'
+          : 'Abrigos ativos cadastrados na API. Ela ainda não tem rota para registrar a saída de pessoas nem para cadastrar abrigos, e um abrigo desativado some desta lista.'}
       </Note>
     </Page>
   )

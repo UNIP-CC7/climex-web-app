@@ -10,6 +10,7 @@ import {
   rescueFromApi,
   rescueStatusToApi,
   roleToApi,
+  SEV_ORDER,
   severityToApi,
   shelterFromApi,
   shelterPatchToApi,
@@ -23,7 +24,9 @@ const CITY = 'Santana de Parnaíba'
 const STATE = 'SP'
 
 export function createHttpServices(client: HttpClient = createHttpClient(), tokens: TokenStore = browserTokens): Services {
-  const listAlerts = async (): Promise<Alert[]> => (await client.all<ApiAlert>('/alerts')).map(alertFromApi)
+  // a API não ordena por severidade; o painel mostra a mais grave primeiro, como no modo simulado
+  const listAlerts = async (): Promise<Alert[]> =>
+    (await client.all<ApiAlert>('/alerts')).map(alertFromApi).sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])
   const listShelters = async () => (await client.get<{ data: ApiShelter[] }>('/shelters')).data.map(shelterFromApi)
   const listRescue = async () => (await client.all<ApiRescue>('/rescue')).map(rescueFromApi)
 

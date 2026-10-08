@@ -1,10 +1,28 @@
-import { useMemo, useState } from 'react'
-import { Btn, Chip, Empty, ErrorMsg, Note, Page, Panel, RiskBadge, Skeleton, Table, TableWrap, Toolbar } from '@/components/ui'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import {
+  ActionError,
+  Btn,
+  Chip,
+  Empty,
+  ErrorMsg,
+  Field,
+  FormGrid,
+  Note,
+  Page,
+  Panel,
+  PanelHead,
+  RiskBadge,
+  Skeleton,
+  Table,
+  TableWrap,
+  Toolbar,
+} from '@/components/ui'
 import { RESCUE_STATUS_LABEL, RESCUE_TYPE_LABEL, type RescueRequest } from '@/domain/types'
 import { useAuth } from '@/features/auth/store'
 import { ago } from '@/lib/format'
 import { byUrgency } from '@/lib/risk'
 import { useRescue, useSetRescueStatus } from '@/lib/queries'
+import { useMocks } from '@/services'
 
 type Filter = 'ABERTA' | 'EM_ATENDIMENTO' | 'CONCLUIDA' | 'CANCELADA' | 'SOS'
 const isClosed = (r: RescueRequest) => r.status === 'CONCLUIDA' || r.status === 'CANCELADA'
@@ -14,6 +32,8 @@ export default function RescueScreen() {
   const { data, isPending, isError, error } = useRescue()
   const setStatus = useSetRescueStatus()
   const [filter, setFilter] = useState<Filter>('ABERTA')
+  const [closingId, setClosingId] = useState<string | null>(null)
+  const outcomeRef = useRef<HTMLInputElement>(null)
   const agent = user?.name ?? 'Agente'
 
   const count = (f: Filter) => (data ?? []).filter((r) => (f === 'SOS' ? r.sos && !isClosed(r) : r.status === f)).length
@@ -30,6 +50,25 @@ export default function RescueScreen() {
     ['SOS', 'Somente SOS'],
   ]
 
+  // o formulário só vale para um caso que ainda está em atendimento: se outro agente concluiu ou o caso saiu da lista, fecha
+  const closing = (data ?? []).find((r) => r.id === closingId && r.status === 'EM_ATENDIMENTO') ?? null
+  useEffect(() => {
+    if (closing) outcomeRef.current?.focus() // quem usa teclado ou leitor de tela cai direto no campo novo
+  }, [closing?.id]) // eslint-disable-line react-hooks/exhaustive-deps -- só ao abrir para outro caso
+
+  function finish(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!closing) return
+    const outcome = String(new FormData(e.currentTarget).get('outcome')).trim()
+    if (outcome.length < 3) {
+      // o navegador já validou o texto cru: só espaços passam por ele e viram vazio aqui
+      outcomeRef.current?.setCustomValidity('Escreva pelo menos 3 letras.')
+      outcomeRef.current?.reportValidity()
+      return
+    }
+    setStatus.mutate({ id: closing.id, status: 'CONCLUIDA', agent, outcome }, { onSuccess: () => setClosingId(null) })
+  }
+
   function action(r: RescueRequest) {
     if (r.status === 'ABERTA')
       return (
@@ -39,11 +78,7 @@ export default function RescueScreen() {
       )
     if (r.status === 'EM_ATENDIMENTO') {
       return (
-        <Btn
-          $ghost
-          disabled={setStatus.isPending}
-          onClick={() => setStatus.mutate({ id: r.id, status: 'CONCLUIDA', agent, outcome: 'Atendida em campo' })}
-        >
+        <Btn $ghost disabled={setStatus.isPending} onClick={() => setClosingId(r.id)}>
           Concluir
         </Btn>
       )
@@ -55,11 +90,49 @@ export default function RescueScreen() {
     <Page>
       <Toolbar role="group" aria-label="Filtros">
         {tabs.map(([k, label]) => (
-          <Chip key={k} $on={filter === k} aria-pressed={filter === k} onClick={() => setFilter(k)}>
+          <Chip
+            key={k}
+            $on={filter === k}
+            aria-pressed={filter === k}
+            onClick={() => {
+              setFilter(k)
+              setClosingId(null)
+            }}
+          >
             {label} · {count(k)}
           </Chip>
         ))}
       </Toolbar>
+      {closing && (
+        <Panel>
+          <PanelHead>
+            <h2>Desfecho do atendimento</h2>
+          </PanelHead>
+          <FormGrid key={closing.id} onSubmit={finish}>
+            <Field className="full">
+              Como terminou o atendimento?
+              <input
+                ref={outcomeRef}
+                onChange={(e) => e.currentTarget.setCustomValidity('')}
+                name="outcome"
+                required
+                minLength={3}
+                maxLength={1000}
+                placeholder="Ex.: Duas pessoas levadas ao abrigo"
+              />
+            </Field>
+            <div className="full" style={{ display: 'flex', gap: 10 }}>
+              <Btn type="submit" disabled={setStatus.isPending}>
+                Registrar desfecho
+              </Btn>
+              <Btn type="button" $ghost onClick={() => setClosingId(null)}>
+                Cancelar
+              </Btn>
+            </div>
+          </FormGrid>
+        </Panel>
+      )}
+      <ActionError error={setStatus.error} />
       <Panel>
         {isPending ? (
           <Skeleton rows={6} h={36} />
@@ -112,8 +185,9 @@ export default function RescueScreen() {
         )}
       </Panel>
       <Note>
-        Ordenada por nível de risco e, em empate, pela distância até o agente. Nível de risco de 0 a 100, nas faixas Baixo, Médio, Alto e Crítico. No
-        modo simulado o valor vem de uma regra de exemplo, no modo HTTP vem da API. Dados simulados.
+        {useMocks
+          ? 'Ordenada por nível de risco e, em empate, pela distância até o agente. O nível vai de 0 a 100, nas faixas Baixo, Médio, Alto e Crítico, e vem de uma regra de exemplo. Dados simulados.'
+          : 'Ordenada pelo nível de risco, de 0 a 100 (faixas Baixo, Médio, Alto e Crítico), calculado pela API. A API ainda não informa a distância até o agente, o bairro nem o nome de quem pediu.'}
       </Note>
     </Page>
   )

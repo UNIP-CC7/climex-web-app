@@ -229,7 +229,7 @@ export function auditFromApi(e: ApiAuditEntry): AuditEntry {
 }
 
 /* ---------- resumo do painel ---------- */
-const SEV_ORDER: Record<Severity, number> = { OBSERVACAO: 0, ATENCAO: 1, ALERTA: 2, ALERTA_MAXIMO: 3 }
+export const SEV_ORDER: Record<Severity, number> = { OBSERVACAO: 0, ATENCAO: 1, ALERTA: 2, ALERTA_MAXIMO: 3 }
 
 /** A API não tem rota de resumo: o painel calcula a partir das três listas. */
 export function buildSummary(alerts: Alert[], shelters: Shelter[], rescue: RescueRequest[], now = new Date()): DashboardSummary {

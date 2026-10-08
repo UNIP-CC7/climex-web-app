@@ -96,6 +96,15 @@ describe('serviços HTTP: alertas', () => {
     expect(client.all).toHaveBeenCalledWith('/alerts')
     expect(list[0]).toMatchObject({ id: 'a1', neighborhood: 'Centro', active: true })
   })
+  it('lista os alertas com a severidade mais alta primeiro', async () => {
+    client.all.mockResolvedValue([
+      { ...apiAlert, id: 'a', level: 'ATENCAO' },
+      { ...apiAlert, id: 'b', level: 'ALERTA_MAXIMO' },
+      { ...apiAlert, id: 'c', level: 'ALERTA' },
+      { ...apiAlert, id: 'd', level: 'ALERTA_MAXIMO' },
+    ])
+    expect((await services.alerts.list()).map((x) => x.id)).toEqual(['b', 'd', 'c', 'a'])
+  })
   it('cria com descrição, raio em metros, cidade, UF e validade', async () => {
     client.post.mockResolvedValue(apiAlert)
     await services.alerts.create({ title: 'Chuva', severity: 'ALERTA', neighborhood: 'Centro', center: [-23.4, -46.9], radiusKm: 1.2, hours: 6 })

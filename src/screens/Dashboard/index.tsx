@@ -21,6 +21,7 @@ import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, SEVERITY_LABEL, type Severity } fro
 import { useAuth } from '@/features/auth/store'
 import { ago, clock, fmt } from '@/lib/format'
 import { byUrgency } from '@/lib/risk'
+import { useMocks } from '@/services'
 import { useAlerts, useRescue, useSetRescueStatus, useShelters, useSummary } from '@/lib/queries'
 import { CENTER } from '@/mocks/seed'
 import { Alerted, Item, Occ, RiskRow, Stat, Stats } from './styles'
@@ -94,7 +95,7 @@ export default function DashboardScreen() {
             )}
           </div>
           <div className="d">
-            {s ? `${fmt.format(s.spotsFree)} vagas livres de ${fmt.format(s.spotsTotal)} ${s.simulated ? ' (simulado)' : ''}` : 'carregando'}
+            {s ? `${fmt.format(s.spotsFree)} vagas livres de ${fmt.format(s.spotsTotal)}${s.simulated ? ' (simulado)' : ''}` : 'carregando'}
           </div>
         </Stat>
         <Stat>
@@ -181,7 +182,9 @@ export default function DashboardScreen() {
             </Occ>
           )}
           <Note style={{ padding: '0 18px 14px', margin: 0 }}>
-            Locais reais do OpenStreetMap ({fmt.format(shelters.data?.length ?? 0)} candidatos no estado). Capacidade e ocupação são simuladas.
+            {useMocks
+              ? `Locais reais do OpenStreetMap (${fmt.format(shelters.data?.length ?? 0)} candidatos no estado). Capacidade e ocupação são simuladas.`
+              : 'Abrigos ativos cadastrados na API.'}
           </Note>
         </Panel>
       </Grid>
