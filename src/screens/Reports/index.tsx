@@ -1,8 +1,10 @@
-import { DownloadSimple, Printer } from '@phosphor-icons/react'
+import { useRef, useState } from 'react'
+import { DownloadSimple, FilePdf } from '@phosphor-icons/react'
 import { Btn, Empty, ErrorMsg, Grid, Note, Page, Panel, PanelHead, Skeleton, Table, TableWrap } from '@/components/ui'
 import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, type RescueType } from '@/domain/types'
 import { fmt, toCsv } from '@/lib/format'
 import { averageAttendanceMinutes, averageOpenAgeMinutes } from '@/lib/metrics'
+import { buildReportPdf, reportFileName } from '@/lib/reportPdf'
 import { useAlerts, useRescue, useShelters } from '@/lib/queries'
 import { useMocks } from '@/services'
 import { Kpi, Kpis } from './styles'
@@ -18,6 +20,8 @@ export default function ReportsScreen() {
   const rescue = useRescue()
   const shelters = useShelters()
   const alerts = useAlerts()
+  const [pdfState, setPdfState] = useState<'idle' | 'busy' | 'error'>('idle')
+  const pdfBusy = useRef(false) // trava síncrona: o estado só chega no render seguinte
 
   if (rescue.isError)
     return (
@@ -67,6 +71,37 @@ export default function ReportsScreen() {
     )
   }
 
+  async function exportPdf() {
+    if (pdfBusy.current) return
+    pdfBusy.current = true
+    setPdfState('busy')
+    try {
+      const generatedAt = new Date()
+      const blob = await buildReportPdf({
+        generatedAt,
+        requests: all,
+        concluded: done.length,
+        openAgeMinutes: openAge,
+        attendanceMinutes: attendance,
+        occupationPercent: cap ? Math.round((100 * occ) / cap) : 0,
+        alertsCount: (alerts.data ?? []).length,
+        neighborhoods: useMocks ? byNb : null,
+        simulated: useMocks,
+      })
+      const url = URL.createObjectURL(blob)
+      const a = Object.assign(document.createElement('a'), { href: url, download: reportFileName(generatedAt) })
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000) // o navegador pode ainda estar lendo o arquivo
+      setPdfState('idle')
+    } catch {
+      setPdfState('error')
+    } finally {
+      pdfBusy.current = false
+    }
+  }
+
   return (
     <Page>
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -74,11 +109,12 @@ export default function ReportsScreen() {
           <DownloadSimple size={18} />
           Exportar CSV
         </Btn>
-        <Btn $ghost onClick={() => window.print()}>
-          <Printer size={18} />
-          Imprimir ou salvar em PDF
+        <Btn $ghost onClick={exportPdf} disabled={pdfState === 'busy'}>
+          <FilePdf size={18} />
+          {pdfState === 'busy' ? 'Gerando PDF...' : 'Exportar PDF'}
         </Btn>
       </div>
+      {pdfState === 'error' && <ErrorMsg error={new Error('Não foi possível gerar o PDF. Tente de novo.')} />}
       <Kpis>
         <Kpi>
           <span>Solicitações no período</span>
