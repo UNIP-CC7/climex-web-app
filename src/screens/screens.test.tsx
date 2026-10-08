@@ -82,6 +82,7 @@ describe('Mapa', () => {
     fireEvent.click(screen.getByLabelText('Abrigos'))
     await waitFor(() => expect(screen.queryByTestId('abrigos-no-mapa')).not.toBeInTheDocument())
     expect(screen.getByText('Alerta Máximo')).toBeInTheDocument() // legenda
+    expect(screen.queryByLabelText(/Candidatos do OpenStreetMap/)).not.toBeInTheDocument() // no modo simulado eles já estão nos abrigos
   })
 })
 

@@ -72,7 +72,7 @@ O que muda em relação ao modo simulado:
 - **Perfis:** o painel bloqueia o login de cidadão (a API aceita, mas ele usa só o aplicativo).
 - **Risco:** a pontuação (`nrScore`, 0 a 100) e a faixa vêm da API.
 - **Painel (resumo):** a API não tem rota de resumo, então os números são calculados no navegador a partir das listas de alertas, abrigos e socorro. Agentes em campo aparece como `-`.
-- **Abrigos:** só os cadastrados na API (os ativos). A camada de candidatos do OpenStreetMap não entra neste modo.
+- **Abrigos:** as listas mostram só os cadastrados na API (os ativos). No mapa há uma camada opcional, desligada por padrão, com os candidatos do OpenStreetMap (locais não validados, desenhados com um marcador tracejado). Ela baixa o arquivo de ~3 MB só quando é ligada e esconde o candidato que já é um abrigo cadastrado.
 - **Socorro:** a lista da API não traz endereço, nome de quem pediu nem distância; o painel mostra a descrição e `-`.
 - **Usuários:** a tela explica que falta `GET /admin/users` e sai do menu.
 - **Sessão:** o token de acesso dura 15 minutos e o painel renova sozinho. Se a renovação falhar, volta para o login. Os tokens ficam no `localStorage` do navegador.

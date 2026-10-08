@@ -1,5 +1,6 @@
 import type { Alert, AppUser, DashboardSummary, RescueRequest, RiskBand, Role, Shelter, ShelterKind } from '@/domain/types'
 import { ALERTS, AUDIT, CENTER, RESCUE, USERS, area, fakeHash } from '@/mocks/seed'
+import { PUBLIC, distanceKm, loadOsmCandidates } from '../osm'
 import type { Services } from '../types'
 
 const delay = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v), ms))
@@ -28,27 +29,6 @@ function log(author: string, role: Role, action: string, entity: string, status 
 }
 
 /* ---------- abrigos: locais reais do OpenStreetMap, capacidade simulada ---------- */
-interface OsmItem {
-  osmId: string
-  tipo: string
-  papel: string
-  nome: string
-  lat: number
-  lng: number
-  rua: string | null
-  bairro: string | null
-  cidade: string | null
-  telefone: string | null
-}
-const PRIVATE = /clube|academia|pilates|crossfit|kart|natação|society|arena|spa\b|studio|jiu|muay|dança/i
-const PUBLIC = /municipal|estadual|emef|emei|emeb|\bee\b|\bceu\b|etec|fatec|ginásio|poliesportivo|centro (esportivo|comunit|de atividades)/i
-
-function km(a: number, b: number, c: number, d: number) {
-  const r = Math.PI / 180
-  const x = (c - a) * r
-  const y = (d - b) * r * Math.cos(a * r)
-  return 6371 * Math.sqrt(x * x + y * y)
-}
 function hash(s: string) {
   let h = 0
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0
@@ -57,17 +37,12 @@ function hash(s: string) {
 
 let sheltersCache: Promise<Shelter[]> | null = null
 function loadShelters(): Promise<Shelter[]> {
-  sheltersCache ??= fetch(`${import.meta.env.BASE_URL}data/osm-sp-estado.json`)
-    .then((r) => {
-      if (!r.ok) throw new Error(`Base de abrigos indisponível (${r.status})`)
-      return r.json() as Promise<{ itens: OsmItem[] }>
-    })
-    .then(({ itens }) => {
-      const list = itens.filter((o) => o.papel === 'candidato_abrigo' && !(o.tipo === 'ginasio_esportivo' && PRIVATE.test(o.nome)))
+  sheltersCache ??= loadOsmCandidates()
+    .then((list) => {
       const nearest = new Set(
         list
           .filter((o) => (o.tipo === 'escola' || o.tipo === 'ginasio_esportivo') && PUBLIC.test(o.nome))
-          .map((o) => ({ id: o.osmId, d: km(CENTER[0], CENTER[1], o.lat, o.lng) }))
+          .map((o) => ({ id: o.osmId, d: distanceKm(CENTER[0], CENTER[1], o.lat, o.lng) }))
           .sort((a, b) => a.d - b.d)
           .slice(0, 7)
           .map((x) => x.id),
@@ -93,6 +68,10 @@ function loadShelters(): Promise<Shelter[]> {
           resources: { water: h % 3 !== 0, food: h % 2 === 0, medical: h % 5 === 0, accessible: h % 4 !== 0, pets: h % 6 === 0 },
         }
       })
+    })
+    .catch((e: unknown) => {
+      sheltersCache = null // uma falha não pode ficar guardada para sempre
+      throw e
     })
   return sheltersCache
 }

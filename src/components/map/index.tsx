@@ -36,6 +36,12 @@ const shelterIcon = L.divIcon({
   iconSize: [26, 26],
 })
 
+const candidateIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:22px;height:22px;border-radius:8px;border:2px dashed ${theme.colors.primaryLighten};background:rgba(8,26,56,.85);color:${theme.colors.primaryLighten};display:grid;place-items:center;font-weight:700;font-size:12px">?</div>`,
+  iconSize: [22, 22],
+})
+
 export function BaseMap({
   center = CENTER,
   zoom = 12,
@@ -81,11 +87,17 @@ export function AlertLayer({ alerts }: { alerts: Alert[] }) {
   )
 }
 
-export function ShelterLayer({ shelters }: { shelters: Shelter[] }) {
+/** `candidate` desenha os marcadores como locais ainda não validados, para ninguém confundir com abrigo cadastrado. */
+export function ShelterLayer({ shelters, candidate = false }: { shelters: Shelter[]; candidate?: boolean }) {
   return (
     <MarkerClusterGroup chunkedLoading maxClusterRadius={50} showCoverageOnHover={false}>
       {shelters.map((s) => (
-        <Marker key={s.id} position={[s.lat, s.lng]} icon={shelterIcon}>
+        <Marker
+          key={s.id}
+          position={[s.lat, s.lng]}
+          icon={candidate ? candidateIcon : shelterIcon}
+          title={candidate ? `${s.name} (candidato, não oficial)` : `${s.name} (abrigo)`}
+        >
           <Popup>
             <b>{s.name}</b>
             <br />
