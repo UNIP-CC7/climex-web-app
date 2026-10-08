@@ -4,6 +4,9 @@ import { Route, Routes } from 'react-router-dom'
 import { useAuth } from '@/features/auth/store'
 import { SESSION_EXPIRED_EVENT, browserTokens } from '@/services/http/session'
 import { loginAs, renderWithApp } from '@/test-utils'
+import { useQueryClient } from '@tanstack/react-query'
+import { shouldPersist } from '@/lib/persist'
+import { useAlerts, useRescue, useSetRescueStatus, useShelters, useSummary } from '@/lib/queries'
 import Login from './Login'
 import Reports from './Reports'
 import Rescue from './Rescue'
@@ -266,5 +269,112 @@ describe('Relatórios em modo HTTP', () => {
     expect(await screen.findByText('A API não informa o bairro')).toBeInTheDocument()
     expect(screen.queryByText('Sem bairro')).not.toBeInTheDocument()
     expect(screen.getByText(/Indicadores calculados no navegador/)).toBeInTheDocument()
+  })
+})
+
+describe('Resumo do painel em modo HTTP', () => {
+  function Sonda() {
+    const resumo = useSummary()
+    useAlerts()
+    useShelters()
+    useRescue()
+    return <p>{resumo.data ? 'abertas: ' + resumo.data.openRescue : 'carregando'}</p>
+  }
+
+  it('calcula do que as listas já buscaram, sem rebuscar alertas, abrigos e socorro', async () => {
+    svc.alertsList.mockResolvedValue([])
+    svc.sheltersList.mockResolvedValue([])
+    svc.rescueList.mockResolvedValue([caso({ status: 'ABERTA' }), caso({ id: 'r2', status: 'ABERTA' })])
+    renderWithApp(<Sonda />)
+    expect(await screen.findByText('abertas: 2')).toBeInTheDocument()
+    expect(svc.alertsList).toHaveBeenCalledTimes(1)
+    expect(svc.sheltersList).toHaveBeenCalledTimes(1)
+    expect(svc.rescueList).toHaveBeenCalledTimes(1)
+  })
+
+  it('o resumo sozinho também funciona, buscando cada lista uma vez', async () => {
+    svc.alertsList.mockResolvedValue([])
+    svc.sheltersList.mockResolvedValue([])
+    svc.rescueList.mockResolvedValue([])
+    function So() {
+      const resumo = useSummary()
+      return <p>{resumo.data ? 'pronto' : 'carregando'}</p>
+    }
+    renderWithApp(<So />)
+    expect(await screen.findByText('pronto')).toBeInTheDocument()
+    expect(svc.rescueList).toHaveBeenCalledTimes(1)
+  })
+
+  it('um erro numa das listas vira erro do resumo', async () => {
+    svc.alertsList.mockRejectedValue(new Error('A API caiu'))
+    svc.sheltersList.mockResolvedValue([])
+    svc.rescueList.mockResolvedValue([])
+    function Erro() {
+      const resumo = useSummary()
+      return <p>{resumo.isError ? 'erro: ' + (resumo.error as Error).message : 'carregando'}</p>
+    }
+    renderWithApp(<Erro />)
+    expect(await screen.findByText('erro: A API caiu')).toBeInTheDocument()
+  })
+})
+
+describe('Resumo derivado das listas', () => {
+  function Painel() {
+    const qc = useQueryClient()
+    const resumo = useSummary()
+    const ação = useSetRescueStatus()
+    return (
+      <div>
+        <p>{resumo.data ? 'abertas: ' + resumo.data.openRescue : 'carregando'}</p>
+        <button onClick={() => qc.invalidateQueries({ queryKey: ['rescue'] })}>invalidar socorro</button>
+        <button onClick={() => ação.mutate({ id: 'r1', status: 'CONCLUIDA', agent: 'x', outcome: 'ok' })}>concluir</button>
+      </div>
+    )
+  }
+
+  const abertas = (n: number) => Array.from({ length: n }, (_, i) => caso({ id: 'a' + i, status: 'ABERTA' }))
+
+  beforeEach(() => {
+    svc.alertsList.mockResolvedValue([])
+    svc.sheltersList.mockResolvedValue([])
+  })
+
+  it('lista invalidada: o resumo acompanha na hora, com uma busca só', async () => {
+    svc.rescueList.mockResolvedValueOnce(abertas(2)).mockResolvedValue(abertas(3))
+    renderWithApp(<Painel />)
+    expect(await screen.findByText('abertas: 2')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('invalidar socorro'))
+    expect(await screen.findByText('abertas: 3')).toBeInTheDocument()
+    expect(svc.rescueList).toHaveBeenCalledTimes(2)
+  })
+
+  it('uma ação do usuário atualiza a lista e o resumo com uma busca só', async () => {
+    svc.rescueList.mockResolvedValueOnce(abertas(2)).mockResolvedValue(abertas(1))
+    svc.setStatus.mockResolvedValue(caso({ status: 'CONCLUIDA' }))
+    renderWithApp(<Painel />)
+    expect(await screen.findByText('abertas: 2')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('concluir'))
+    expect(await screen.findByText('abertas: 1')).toBeInTheDocument()
+    expect(svc.rescueList).toHaveBeenCalledTimes(2)
+  })
+
+  it('informa a hora da lista mais velha e continua pendente até as três chegarem', async () => {
+    let soltar: (v: unknown[]) => void = () => undefined
+    svc.rescueList.mockReturnValue(new Promise((resolve) => (soltar = resolve)))
+    function Hora() {
+      const r = useSummary()
+      return <p>{r.isPending ? 'pendente' : r.dataUpdatedAt > 0 ? 'com hora' : 'sem hora'}</p>
+    }
+    renderWithApp(<Hora />)
+    expect(await screen.findByText('pendente')).toBeInTheDocument()
+    soltar([])
+    expect(await screen.findByText('com hora')).toBeInTheDocument()
+  })
+
+  it('em modo HTTP os abrigos também vão para o disco, porque o resumo depende deles', () => {
+    const ok = (k: string) => ({ queryKey: [k], state: { status: 'success' } }) as never
+    expect(shouldPersist(ok('shelters'))).toBe(true)
+    expect(shouldPersist(ok('users'))).toBe(false)
+    expect(shouldPersist(ok('audit'))).toBe(false)
   })
 })
