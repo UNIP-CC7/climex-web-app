@@ -1,14 +1,54 @@
+import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { services } from '@/services'
-import type { RescueStatus, Role, Shelter } from '@/domain/types'
+import { services, useMocks } from '@/services'
+import { buildSummary } from '@/services/http/mappers'
+import type { DashboardSummary, RescueStatus, Role, Shelter } from '@/domain/types'
 
 /** Atualização automática a cada 30 s (RF-DASH). WebSocket entra quando a API existir. */
 export const REFRESH_MS = 30_000
 
-export const useSummary = () => useQuery({ queryKey: ['summary'], queryFn: services.dashboard.summary, refetchInterval: REFRESH_MS })
 export const useAlerts = () => useQuery({ queryKey: ['alerts'], queryFn: services.alerts.list, refetchInterval: REFRESH_MS })
 export const useShelters = () => useQuery({ queryKey: ['shelters'], queryFn: services.shelters.list, refetchInterval: REFRESH_MS })
 export const useRescue = () => useQuery({ queryKey: ['rescue'], queryFn: services.rescue.list, refetchInterval: REFRESH_MS })
+
+export interface SummaryState {
+  data: DashboardSummary | undefined
+  dataUpdatedAt: number
+  isPending: boolean
+  isError: boolean
+  error: unknown
+}
+
+/** Modo simulado: o resumo vem do serviço, que calcula em cima do estado simulado. */
+function useSummaryFromService(): SummaryState {
+  const q = useQuery({ queryKey: ['summary'], queryFn: services.dashboard.summary, refetchInterval: REFRESH_MS })
+  return { data: q.data, dataUpdatedAt: q.dataUpdatedAt, isPending: q.isPending, isError: q.isError, error: q.error }
+}
+
+/**
+ * Modo HTTP: a API não tem rota de resumo, então ele é derivado das consultas de alertas, abrigos e socorro que as telas já usam.
+ * Não há consulta própria: nenhuma busca repetida e nenhum jeito de o resumo ficar fora de sincronia com as listas.
+ */
+function useSummaryFromLists(): SummaryState {
+  const alerts = useAlerts()
+  const shelters = useShelters()
+  const rescue = useRescue()
+  const a = alerts.data
+  const s = shelters.data
+  const r = rescue.data
+  const updatedAt = a && s && r ? Math.min(alerts.dataUpdatedAt, shelters.dataUpdatedAt, rescue.dataUpdatedAt) : 0 // vale a lista mais velha
+  const data = useMemo(() => (a && s && r ? buildSummary(a, s, r, new Date(updatedAt)) : undefined), [a, s, r, updatedAt])
+  return {
+    data,
+    dataUpdatedAt: updatedAt,
+    isPending: alerts.isPending || shelters.isPending || rescue.isPending,
+    isError: alerts.isError || shelters.isError || rescue.isError,
+    error: alerts.error ?? shelters.error ?? rescue.error,
+  }
+}
+
+// a escolha é uma constante do módulo, então a ordem dos hooks nunca muda entre renderizações
+export const useSummary: () => SummaryState = useMocks ? useSummaryFromService : useSummaryFromLists
 export const useUsers = () => useQuery({ queryKey: ['users'], queryFn: services.users.list })
 export const useAudit = () => useQuery({ queryKey: ['audit'], queryFn: services.audit.list })
 

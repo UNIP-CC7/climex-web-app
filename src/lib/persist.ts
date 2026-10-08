@@ -1,5 +1,6 @@
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import type { Query } from '@tanstack/react-query'
+import { useMocks } from '@/services'
 import type { PersistQueryClientProviderProps } from '@tanstack/react-query-persist-client'
 
 /** Chave do cache no armazenamento do navegador. */
@@ -14,9 +15,10 @@ export const CACHE_BUSTER = 'v2' // v2: risco passou a ser { score, band }
 /**
  * Só dados operacionais vão para o disco. Ficam de fora:
  * - `users` e `audit`: têm dados pessoais (telefone, IP) e não devem sobrar no navegador;
- * - `shelters`: é um arquivo estático de ~3 MB que o próprio navegador já guarda em cache HTTP.
+ * - `shelters` (só no modo simulado): é um arquivo estático de ~3 MB que o próprio navegador já guarda em cache HTTP.
  */
-const PERSISTED_KEYS = new Set(['summary', 'alerts', 'rescue'])
+// em modo HTTP os abrigos vêm da API (poucos) e o resumo é derivado deles, então também precisam ir para o disco
+const PERSISTED_KEYS = new Set(['summary', 'alerts', 'rescue', ...(useMocks ? [] : ['shelters'])])
 
 export function shouldPersist(query: Pick<Query, 'queryKey' | 'state'>): boolean {
   return query.state.status === 'success' && PERSISTED_KEYS.has(String(query.queryKey[0]))
