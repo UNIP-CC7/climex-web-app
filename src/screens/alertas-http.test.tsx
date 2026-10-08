@@ -11,6 +11,7 @@ vi.mock('@/components/map', async () => {
   return {
     BaseMap: ({ children }: { children?: unknown }) => createElement('div', { 'data-testid': 'mapa' }, children as never),
     AlertLayer: () => null,
+    FitCircle: () => null,
     SEVERITY_COLOR: { OBSERVACAO: '#1', ATENCAO: '#2', ALERTA: '#3', ALERTA_MAXIMO: '#4' },
   }
 })

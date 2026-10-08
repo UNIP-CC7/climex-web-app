@@ -1,6 +1,6 @@
-import { useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import L from 'leaflet'
-import { Circle, CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker } from 'react-leaflet'
+import { Circle, CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker, useMap } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import {
   RESCUE_TYPE_LABEL,
@@ -15,7 +15,7 @@ import {
 import { theme } from '@/theme'
 import { CENTER } from '@/mocks/seed'
 import { clock } from '@/lib/format'
-import { heatCells } from '@/lib/heat'
+import { alertHeatCells, heatCells, type HeatCell } from '@/lib/heat'
 
 export const SEVERITY_COLOR: Record<Severity, string> = {
   OBSERVACAO: theme.colors.severity.obs,
@@ -151,9 +151,7 @@ export function RescueLayer({ items }: { items: RescueRequest[] }) {
   )
 }
 
-/** Concentração de ocorrências em aberto: grade de ~550 m, mais quente onde o NR somado é maior. */
-export function HeatLayer({ items }: { items: RescueRequest[] }) {
-  const cells = useMemo(() => heatCells(items), [items])
+function HeatCircles({ cells, color }: { cells: HeatCell[]; color: string }) {
   return (
     <>
       {cells.map((c) => (
@@ -161,10 +159,35 @@ export function HeatLayer({ items }: { items: RescueRequest[] }) {
           key={`${c.lat}:${c.lng}`}
           center={[c.lat, c.lng]}
           radius={380}
-          pathOptions={{ stroke: false, fillColor: theme.colors.danger, fillOpacity: 0.12 + 0.5 * c.intensity }}
+          pathOptions={{ stroke: false, fillColor: color, fillOpacity: 0.12 + 0.5 * c.intensity }}
           interactive={false}
         />
       ))}
     </>
   )
+}
+
+/** Concentração de ocorrências em aberto: grade de ~550 m, mais quente onde o NR somado é maior. */
+export function HeatLayer({ items }: { items: RescueRequest[] }) {
+  const cells = useMemo(() => heatCells(items), [items])
+  return <HeatCircles cells={cells} color={theme.colors.danger} />
+}
+
+/** Densidade dos alertas ativos: mais quente onde há mais áreas e de maior gravidade. */
+export function AlertHeatLayer({ alerts }: { alerts: Alert[] }) {
+  const cells = useMemo(() => alertHeatCells(alerts), [alerts])
+  return <HeatCircles cells={cells} color={SEVERITY_COLOR.ALERTA_MAXIMO} />
+}
+
+/** Reenquadra o mapa para o círculo caber inteiro, útil quando o raio vai de 500 m a 50 km. */
+export function FitCircle({ center, radiusMeters }: { center: LatLng; radiusMeters: number }) {
+  const map = useMap()
+  useEffect(() => {
+    // espera o controle parar de mexer: reenquadrar a cada passo do arraste engasga o mapa
+    const t = setTimeout(() => {
+      map.fitBounds(L.circle(center, { radius: radiusMeters }).getBounds(), { padding: [16, 16], animate: false })
+    }, 250)
+    return () => clearTimeout(t)
+  }, [map, center, radiusMeters])
+  return null
 }
