@@ -69,20 +69,30 @@ function neighborhoodFrom(description: string, fallback: string): string {
   )
 }
 
-/** GeoJSON [lng, lat] para o [lat, lng] do Leaflet. Usa o anel externo do primeiro polígono. */
-export function polygonFromGeoJson(geo: unknown): LatLng[] | null {
-  const g = geo as { type?: string; coordinates?: unknown } | null
-  if (!g || !Array.isArray(g.coordinates)) return null
-  if (g.type !== 'Polygon' && g.type !== 'MultiPolygon') return null
-  const ring = (g.type === 'MultiPolygon' ? (g.coordinates as unknown[][][][])[0]?.[0] : (g.coordinates as unknown[][][])[0]) as unknown[] | undefined
+function ringFromGeoJson(ring: unknown): LatLng[] | null {
   if (!Array.isArray(ring) || !ring.length) return null
   const points: LatLng[] = []
   for (const p of ring) {
-    // um ponto malformado invalida o polígono todo, e aí vale o círculo de reserva
+    // um ponto malformado invalida o anel
     if (!Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) return null
     points.push([p[1] as number, p[0] as number])
   }
+  // um anel de verdade tem 4 posições (a última repete a primeira) e ao menos 3 vértices diferentes
+  if (points.length < 4 || new Set(points.map((q) => q.join(','))).size < 3) return null
   return points
+}
+
+/**
+ * GeoJSON [lng, lat] para o [lat, lng] do Leaflet, com o anel externo de cada polígono. Buracos são ignorados.
+ * Um anel malformado é descartado. Se nenhum sobrar, devolve null e vale o círculo de reserva.
+ */
+export function polygonsFromGeoJson(geo: unknown): LatLng[][] | null {
+  const g = geo as { type?: string; coordinates?: unknown } | null
+  if (!g || !Array.isArray(g.coordinates)) return null
+  if (g.type !== 'Polygon' && g.type !== 'MultiPolygon') return null
+  const polygons: unknown[] = g.type === 'MultiPolygon' ? g.coordinates : [g.coordinates]
+  const rings = polygons.map((p) => ringFromGeoJson(Array.isArray(p) ? p[0] : null)).filter((r): r is LatLng[] => r !== null)
+  return rings.length ? rings : null
 }
 
 /** Círculo aproximado, só para o caso de a API não devolver o polígono. */
@@ -103,7 +113,7 @@ export function alertFromApi(a: ApiAlert): Alert {
     severity: a.level as Severity,
     city: a.city,
     neighborhood: neighborhoodFrom(a.description, a.city),
-    polygon: polygonFromGeoJson(a.polygon) ?? circle(a.latitude, a.longitude, a.radiusMeters ?? 1000),
+    polygons: polygonsFromGeoJson(a.polygon) ?? [circle(a.latitude, a.longitude, a.radiusMeters ?? 1000)],
     issuedAt: a.createdAt,
     expiresAt: a.expiresAt,
     active: a.status === 'ACTIVE',

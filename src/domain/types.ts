@@ -16,7 +16,8 @@ export interface Alert {
   severity: Severity
   city: string
   neighborhood: string
-  polygon: LatLng[]
+  /** Um anel externo por área. Um alerta com várias áreas separadas (MultiPolygon da API) tem mais de um. */
+  polygons: LatLng[][]
   issuedAt: string
   /** null quando a API não informa validade */
   expiresAt: string | null

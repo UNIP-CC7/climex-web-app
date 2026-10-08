@@ -6,7 +6,7 @@ import {
   alertFromApi,
   auditFromApi,
   buildSummary,
-  polygonFromGeoJson,
+  polygonsFromGeoJson,
   rescueFromApi,
   rescueStatusToApi,
   roleFromApi,
@@ -112,33 +112,69 @@ describe('perfis e telefone', () => {
 describe('alertas', () => {
   it('converte o polígono [lng, lat] para [lat, lng]', () => {
     expect(
-      polygonFromGeoJson({
+      polygonsFromGeoJson({
         type: 'Polygon',
         coordinates: [
           [
             [-46.9, -23.4],
+            [-46.8, -23.4],
             [-46.8, -23.5],
+            [-46.9, -23.4],
           ],
         ],
       }),
     ).toEqual([
-      [-23.4, -46.9],
-      [-23.5, -46.8],
+      [
+        [-23.4, -46.9],
+        [-23.4, -46.8],
+        [-23.5, -46.8],
+        [-23.4, -46.9],
+      ],
     ])
-    expect(polygonFromGeoJson(apiAlert().polygon)?.[0]).toEqual([-23.4, -46.9])
+    expect(polygonsFromGeoJson(apiAlert().polygon)?.[0][0]).toEqual([-23.4, -46.9])
+  })
+  it('anel degenerado (1 ou 2 pontos, aberto demais, todos iguais) não vale e cai no círculo de reserva', () => {
+    const ring = (...pts: number[][]) => ({ type: 'Polygon', coordinates: [pts] })
+    expect(polygonsFromGeoJson(ring([-46.9, -23.4]))).toBeNull()
+    expect(polygonsFromGeoJson(ring([-46.9, -23.4], [-46.8, -23.5]))).toBeNull()
+    expect(polygonsFromGeoJson(ring([-46.9, -23.4], [-46.8, -23.5], [-46.9, -23.4]))).toBeNull() // só 2 vértices diferentes
+    expect(polygonsFromGeoJson(ring([-46.9, -23.4], [-46.9, -23.4], [-46.9, -23.4], [-46.9, -23.4]))).toBeNull()
+    const a = alertFromApi(apiAlert({ polygon: ring([-46.9, -23.4]) }))
+    expect(a.polygons[0]).toHaveLength(24)
+  })
+  it('MultiPolygon: um anel por área, ignora buracos e descarta só o anel malformado', () => {
+    const quadrado = (x: number) => [
+      [x, -23.4],
+      [x + 0.1, -23.4],
+      [x + 0.1, -23.5],
+      [x, -23.4],
+    ]
+    const buraco = [
+      [-46.85, -23.42],
+      [-46.84, -23.42],
+      [-46.84, -23.43],
+      [-46.85, -23.42],
+    ]
+    const r = polygonsFromGeoJson({ type: 'MultiPolygon', coordinates: [[quadrado(-46.9), buraco], [quadrado(-46.5)]] })
+    expect(r).toHaveLength(2)
+    expect(r?.[0]).toHaveLength(4) // o buraco não vira anel
+    expect(r?.[1][0]).toEqual([-23.4, -46.5])
+    const meio = polygonsFromGeoJson({ type: 'MultiPolygon', coordinates: [[[['x', 1]]], [quadrado(-46.5)]] })
+    expect(meio).toHaveLength(1)
+    expect(polygonsFromGeoJson({ type: 'MultiPolygon', coordinates: [] })).toBeNull()
   })
   it('rejeita tipo de geometria inesperado e coordenadas malformadas', () => {
-    expect(polygonFromGeoJson({ type: 'Point', coordinates: [-46.9, -23.4] })).toBeNull()
-    expect(polygonFromGeoJson({ coordinates: [[[-46.9, -23.4]]] })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: [[[-46.9]]] })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: [[['x', -23.4]]] })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: [[null]] })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: ['x'] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Point', coordinates: [-46.9, -23.4] })).toBeNull()
+    expect(polygonsFromGeoJson({ coordinates: [[[-46.9, -23.4]]] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: [[[-46.9]]] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: [[['x', -23.4]]] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: [[null]] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: ['x'] })).toBeNull()
   })
   it('devolve null quando não há polígono utilizável', () => {
-    expect(polygonFromGeoJson(null)).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon' })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: [[]] })).toBeNull()
+    expect(polygonsFromGeoJson(null)).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon' })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: [[]] })).toBeNull()
   })
   it('mapeia campos, bairro da descrição e situação ativa', () => {
     const a = alertFromApi(apiAlert())
@@ -164,9 +200,10 @@ describe('alertas', () => {
   })
   it('sem polígono desenha um círculo ao redor do centro', () => {
     const a = alertFromApi(apiAlert({ polygon: null }))
-    expect(a.polygon).toHaveLength(24)
+    expect(a.polygons).toHaveLength(1)
+    expect(a.polygons[0]).toHaveLength(24)
     const sem = alertFromApi(apiAlert({ polygon: null, radiusMeters: null }))
-    expect(sem.polygon).toHaveLength(24)
+    expect(sem.polygons[0]).toHaveLength(24)
   })
   it('o bairro volta inteiro com ou sem ponto final e com espaços depois', () => {
     const n = (description: string) => alertFromApi(apiAlert({ description })).neighborhood
