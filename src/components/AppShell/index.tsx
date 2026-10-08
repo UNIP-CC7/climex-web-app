@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { onlineManager, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowsClockwise,
@@ -10,6 +11,7 @@ import {
   MapTrifold,
   ShieldCheck,
   SignOut,
+  WifiSlash,
   SquaresFour,
   Users,
   Warning,
@@ -52,6 +54,11 @@ export function AppShell() {
   const { user, signOut } = useAuth()
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const online = useSyncExternalStore(
+    (notify) => onlineManager.subscribe(notify),
+    () => onlineManager.isOnline(),
+  )
   const summary = useSummary()
   const alerts = useAlerts()
   const rescue = useRescue()
@@ -118,6 +125,7 @@ export function AppShell() {
             title="Sair"
             onClick={() => {
               signOut()
+              queryClient.clear() // nada do perfil anterior fica na memória da aba
               navigate('/entrar')
             }}
           >
@@ -133,6 +141,12 @@ export function AppShell() {
             <SubTitle>{sub}</SubTitle>
           </div>
           <span style={{ flex: 1 }} />
+          {!online && (
+            <Pill role="status">
+              <WifiSlash size={16} />
+              Sem conexão, dados salvos
+            </Pill>
+          )}
           <Pill $live className="hide">
             <ArrowsClockwise size={16} />
             <span className="mono">atualizado há {secs} s</span>

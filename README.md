@@ -88,6 +88,17 @@ O controle de acesso por rota está em `src/features/auth/store.ts` (`ROUTE_ROLE
 - **Capacidade, ocupação, alertas, solicitações e usuários:** simulados (`src/mocks/seed.ts` e `src/services/mock`). Recarregar a página volta tudo ao estado inicial.
 - **Nível de risco:** `src/lib/risk.ts` é uma regra de exemplo. A regra real virá da API.
 
+## Cache de leitura (72 horas)
+
+Para o painel continuar útil quando a conexão cai, os dados lidos ficam salvos no navegador (`localStorage`, chave `climex.cache`) por **72 horas**. Ao reabrir o painel, ele mostra o que foi salvo e atualiza assim que a conexão voltar. Sem conexão, o topo mostra o aviso "Sem conexão, dados salvos".
+
+- **O que é salvo:** o resumo do painel, os alertas e as solicitações de socorro.
+- **O que não é salvo:** usuários e auditoria (têm dados pessoais) e a base de abrigos (arquivo estático de 3 MB que o navegador já guarda).
+- **Quando é apagado:** ao sair da conta, ao entrar de novo, quando passa de 72 horas, quando o formato dos dados muda (`CACHE_BUSTER` em `src/lib/persist.ts`) ou quando o navegador bloqueia o armazenamento (o painel segue só com a memória).
+- **Cuidado:** o cache fica em texto no navegador. Com dados reais da API, avalie com a equipe quais campos podem ficar salvos por 72 horas, principalmente localização e dados de quem pediu socorro.
+
+O código está em `src/lib/persist.ts`, ligado em `src/main.tsx`.
+
 ## Estrutura
 
 ```
