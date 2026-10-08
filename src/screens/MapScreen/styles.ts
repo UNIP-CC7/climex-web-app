@@ -62,3 +62,15 @@ export const Loading = styled.div`
   font-size: 13px;
   color: ${({ theme }) => theme.colors.muted};
 `
+export const Credit = styled.div`
+  ${floating} right: 14px;
+  bottom: 26px;
+  max-width: 280px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.muted};
+  a {
+    color: ${({ theme }) => theme.colors.primaryLighten};
+    text-decoration: underline;
+  }
+`
