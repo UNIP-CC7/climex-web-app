@@ -108,6 +108,8 @@ describe('Socorro', () => {
     fireEvent.click(screen.getByText(/^Em atendimento/))
     const concluir = (await screen.findAllByRole('button', { name: 'Concluir' }))[0]
     fireEvent.click(concluir)
+    fireEvent.change(await screen.findByPlaceholderText(/Duas pessoas/), { target: { value: 'Atendida em campo' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar desfecho' }))
     await waitFor(() => expect(screen.getByText(/Concluídas · 1/)).toBeInTheDocument())
     fireEvent.click(screen.getByText(/^Concluídas/))
     expect(await screen.findByText('Atendida em campo')).toBeInTheDocument()

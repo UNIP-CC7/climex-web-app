@@ -1,8 +1,9 @@
 import { DownloadSimple, Printer } from '@phosphor-icons/react'
-import { Btn, ErrorMsg, Grid, Note, Page, Panel, PanelHead, Skeleton, Table, TableWrap } from '@/components/ui'
+import { Btn, Empty, ErrorMsg, Grid, Note, Page, Panel, PanelHead, Skeleton, Table, TableWrap } from '@/components/ui'
 import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, type RescueType } from '@/domain/types'
 import { fmt, minutesAgo, toCsv } from '@/lib/format'
 import { useAlerts, useRescue, useShelters } from '@/lib/queries'
+import { useMocks } from '@/services'
 import { Kpi, Kpis } from './styles'
 
 function download(name: string, content: string) {
@@ -122,23 +123,34 @@ export default function ReportsScreen() {
           <PanelHead>
             <h2>Bairros com mais ocorrências</h2>
           </PanelHead>
-          <TableWrap>
-            <Table>
-              <tbody>
-                {byNb.map(([n, c]) => (
-                  <tr key={n}>
-                    <td>{n}</td>
-                    <td className="mono" style={{ textAlign: 'right' }}>
-                      {c}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </TableWrap>
+          {useMocks ? (
+            <TableWrap>
+              <Table>
+                <tbody>
+                  {byNb.map(([n, c]) => (
+                    <tr key={n}>
+                      <td>{n}</td>
+                      <td className="mono" style={{ textAlign: 'right' }}>
+                        {c}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+          ) : (
+            <Empty
+              title="A API não informa o bairro"
+              hint="A lista de socorro da API só traz a descrição e as coordenadas, então não há como agrupar por bairro."
+            />
+          )}
         </Panel>
       </Grid>
-      <Note>Indicadores calculados sobre dados simulados. O relatório oficial usará o histórico completo do evento, vindo da API.</Note>
+      <Note>
+        {useMocks
+          ? 'Indicadores calculados sobre dados simulados. O relatório oficial usará o histórico completo do evento, vindo da API.'
+          : 'Indicadores calculados no navegador sobre as solicitações, os alertas e os abrigos que a API devolve. A API ainda não tem rota de relatório.'}
+      </Note>
     </Page>
   )
 }
