@@ -199,6 +199,7 @@ export function rescueFromApi(r: ApiRescue): RescueRequest {
     requesterName: null,
     distanceKm: null,
     openedAt: r.createdAt,
+    resolvedAt: null,
     assignedTo: r.assignedAgentId,
     outcome: r.outcomeNote,
   }

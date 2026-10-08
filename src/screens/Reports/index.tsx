@@ -1,7 +1,8 @@
 import { DownloadSimple, Printer } from '@phosphor-icons/react'
 import { Btn, Empty, ErrorMsg, Grid, Note, Page, Panel, PanelHead, Skeleton, Table, TableWrap } from '@/components/ui'
 import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, type RescueType } from '@/domain/types'
-import { fmt, minutesAgo, toCsv } from '@/lib/format'
+import { fmt, toCsv } from '@/lib/format'
+import { averageAttendanceMinutes, averageOpenAgeMinutes } from '@/lib/metrics'
 import { useAlerts, useRescue, useShelters } from '@/lib/queries'
 import { useMocks } from '@/services'
 import { Kpi, Kpis } from './styles'
@@ -35,7 +36,8 @@ export default function ReportsScreen() {
 
   const all = rescue.data
   const done = all.filter((r) => r.status === 'CONCLUIDA')
-  const avg = all.length ? Math.round(all.reduce((n, r) => n + minutesAgo(r.openedAt), 0) / all.length) : 0
+  const openAge = averageOpenAgeMinutes(all)
+  const attendance = averageAttendanceMinutes(all)
   const active = (shelters.data ?? []).filter((s) => s.status === 'ATIVO')
   const occ = active.reduce((n, s) => n + s.occupancy, 0)
   const cap = active.reduce((n, s) => n + s.capacity, 0)
@@ -87,8 +89,12 @@ export default function ReportsScreen() {
           <b className="mono">{fmt.format(done.length)}</b>
         </Kpi>
         <Kpi>
-          <span>Tempo médio desde a abertura</span>
-          <b className="mono">{avg} min</b>
+          <span>Idade média das solicitações em aberto</span>
+          <b className="mono">{openAge == null ? '-' : `${openAge} min`}</b>
+        </Kpi>
+        <Kpi>
+          <span>Tempo médio de atendimento</span>
+          <b className="mono">{attendance == null ? '-' : `${attendance} min`}</b>
         </Kpi>
         <Kpi>
           <span>Ocupação dos abrigos ativos</span>

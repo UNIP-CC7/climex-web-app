@@ -101,10 +101,12 @@ export default function DashboardScreen() {
         <Stat>
           <div className="l">
             <PersonSimpleRun size={18} />
-            Agentes em campo
+            {s && s.agentsInField == null ? 'Agentes em atendimento' : 'Agentes em campo'}
           </div>
-          <div className="v mono">{s?.agentsInField ?? '-'}</div>
-          <div className="d">{s ? `${s.agentsAttending} em atendimento agora` : 'carregando'}</div>
+          <div className="v mono">{s ? (s.agentsInField ?? s.agentsAttending) : '-'}</div>
+          <div className="d">
+            {!s ? 'carregando' : s.agentsInField == null ? 'a API ainda não informa quem está em campo' : `${s.agentsAttending} em atendimento agora`}
+          </div>
         </Stat>
       </Stats>
       {summary.isError && <ErrorMsg error={summary.error} />}
