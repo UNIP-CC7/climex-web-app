@@ -57,13 +57,17 @@ describe('rotas e perfis', () => {
     await waitFor(() => expect(path()).toBe('/'))
   })
 
-  it('agente não acessa abrigos, alertas nem relatórios', async () => {
+  it('agente acessa abrigos, mas não alertas nem relatórios', async () => {
     loginAs('AGENTE')
     app()
     await go('/')
     await screen.findByRole('link', { name: /Socorro/ })
-    expect(screen.queryByRole('link', { name: /Abrigos/ })).not.toBeInTheDocument()
-    for (const p of ['/abrigos', '/alertas', '/relatorios']) {
+    expect(screen.getByRole('link', { name: /Abrigos/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Alertas/ })).not.toBeInTheDocument()
+    await go('/abrigos')
+    expect(await screen.findByText(/Abrigos ativos/)).toBeInTheDocument()
+    expect(path()).toBe('/abrigos')
+    for (const p of ['/alertas', '/relatorios']) {
       await go(p)
       await waitFor(() => expect(path()).toBe('/'))
     }

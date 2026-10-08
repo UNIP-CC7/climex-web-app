@@ -33,8 +33,9 @@ describe('permissões por rota', () => {
     expect(ROUTE_ROLES['/usuarios']).toEqual(['ADMIN'])
     expect(ROUTE_ROLES['/auditoria']).toEqual(['ADMIN'])
   })
-  it('agente não acessa abrigos nem alertas', () => {
-    expect(ROUTE_ROLES['/abrigos']).not.toContain('AGENTE')
+  it('agente edita abrigos (como a API permite), mas não emite alertas', () => {
+    expect(ROUTE_ROLES['/abrigos']).toContain('AGENTE')
     expect(ROUTE_ROLES['/alertas']).not.toContain('AGENTE')
+    expect(ROUTE_ROLES['/relatorios']).not.toContain('AGENTE')
   })
 })

@@ -74,7 +74,7 @@ Para quem for montar o README raiz do projeto, esta é a ordem em que as partes 
 | `/` Painel | agente, gestor, admin | contadores, mapa resumo, alertas, ocupação e próximas solicitações |
 | `/mapa` | agente, gestor, admin | camadas de alertas, abrigos, solicitações e concentração de ocorrências |
 | `/socorro` | agente, gestor, admin | fila por nível de risco, aceitar e concluir |
-| `/abrigos` | gestor, admin | candidatos e ativos, busca, edição, entrada e saída |
+| `/abrigos` | agente, gestor, admin | candidatos e ativos, busca, edição, entrada e saída |
 | `/alertas` | gestor, admin | emitir (área no mapa) e encerrar |
 | `/relatorios` | gestor, admin | indicadores, exportar CSV, imprimir ou salvar em PDF |
 | `/usuarios` | admin | perfis e ativação |
