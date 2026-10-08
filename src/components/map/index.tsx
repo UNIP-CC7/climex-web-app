@@ -114,7 +114,7 @@ export function RescueLayer({ items }: { items: RescueRequest[] }) {
   return (
     <>
       {items
-        .filter((r) => r.status !== 'CONCLUIDA')
+        .filter((r) => r.status === 'ABERTA' || r.status === 'EM_ATENDIMENTO')
         .map((r) => (
           <CircleMarker
             key={r.id}

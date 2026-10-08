@@ -20,6 +20,7 @@ import {
 import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, SEVERITY_LABEL, type Severity } from '@/domain/types'
 import { useAuth } from '@/features/auth/store'
 import { ago, clock, fmt } from '@/lib/format'
+import { byUrgency } from '@/lib/risk'
 import { useAlerts, useRescue, useSetRescueStatus, useShelters, useSummary } from '@/lib/queries'
 import { CENTER } from '@/mocks/seed'
 import { Alerted, Item, Occ, RiskRow, Stat, Stats } from './styles'
@@ -46,7 +47,7 @@ export default function DashboardScreen() {
   const ativos = shelters.data?.filter((x) => x.status === 'ATIVO').slice(0, 3) ?? []
   const next = (rescue.data ?? [])
     .filter((r) => r.status === 'ABERTA')
-    .sort((a, b) => b.risk.score - a.risk.score || a.distanceKm - b.distanceKm)
+    .sort(byUrgency)
     .slice(0, 3)
 
   return (
@@ -92,14 +93,16 @@ export default function DashboardScreen() {
               '-'
             )}
           </div>
-          <div className="d">{s ? `${fmt.format(s.spotsFree)} vagas livres de ${fmt.format(s.spotsTotal)} (simulado)` : 'carregando'}</div>
+          <div className="d">
+            {s ? `${fmt.format(s.spotsFree)} vagas livres de ${fmt.format(s.spotsTotal)} ${s.simulated ? ' (simulado)' : ''}` : 'carregando'}
+          </div>
         </Stat>
         <Stat>
           <div className="l">
             <PersonSimpleRun size={18} />
             Agentes em campo
           </div>
-          <div className="v mono">{s ? s.agentsInField : '-'}</div>
+          <div className="v mono">{s?.agentsInField ?? '-'}</div>
           <div className="d">{s ? `${s.agentsAttending} em atendimento agora` : 'carregando'}</div>
         </Stat>
       </Stats>
@@ -146,7 +149,7 @@ export default function DashboardScreen() {
                         {a.title}, {a.neighborhood}
                       </b>
                       <span>
-                        Emitido às {clock(a.issuedAt)} · expira {clock(a.expiresAt)}
+                        Emitido às {clock(a.issuedAt)} · {a.expiresAt ? `expira ${clock(a.expiresAt)}` : 'sem prazo de expiração'}
                       </span>
                     </div>
                     <SeverityBadge severity={a.severity} />
@@ -215,9 +218,7 @@ export default function DashboardScreen() {
                       <RiskBadge risk={r.risk} sos={r.sos} />
                     </td>
                     <td>{RESCUE_TYPE_LABEL[r.type]}</td>
-                    <td>
-                      {r.address}, {r.neighborhood}
-                    </td>
+                    <td>{[r.address, r.neighborhood].filter(Boolean).join(', ')}</td>
                     <td className="mono">{ago(r.openedAt)}</td>
                     <td>
                       <Btn

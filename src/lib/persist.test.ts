@@ -97,7 +97,7 @@ describe('salvar e restaurar', () => {
     a.setQueryData(['alerts'], [{ id: 'al-1' }])
     await salvar(a)
     const b = new QueryClient()
-    await restaurar(b, { buster: 'v2' })
+    await restaurar(b, { buster: 'formato-antigo' })
     expect(b.getQueryData(['alerts'])).toBeUndefined()
   })
 })
