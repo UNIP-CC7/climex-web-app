@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { services, useMocks } from '@/services'
 import { buildSummary } from '@/services/http/mappers'
+import { candidateToShelter, loadOsmCandidates } from '@/services/osm'
 import type { DashboardSummary, RescueStatus, Role, Shelter } from '@/domain/types'
 
 /** Atualização automática a cada 30 s (RF-DASH). WebSocket entra quando a API existir. */
@@ -49,6 +50,16 @@ function useSummaryFromLists(): SummaryState {
 
 // a escolha é uma constante do módulo, então a ordem dos hooks nunca muda entre renderizações
 export const useSummary: () => SummaryState = useMocks ? useSummaryFromService : useSummaryFromLists
+
+/** Candidatos a abrigo do OpenStreetMap, só quando a camada está ligada. O arquivo é estático, então nunca fica velho e não vai para o disco. */
+export const useOsmCandidates = (enabled: boolean) =>
+  useQuery({
+    queryKey: ['osm-candidates'],
+    queryFn: async () => (await loadOsmCandidates()).map(candidateToShelter),
+    enabled,
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
+  })
 export const useUsers = () => useQuery({ queryKey: ['users'], queryFn: services.users.list })
 export const useAudit = () => useQuery({ queryKey: ['audit'], queryFn: services.audit.list })
 
