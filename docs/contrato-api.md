@@ -1,29 +1,38 @@
 # Painel web e climex-api: o que falta para ligar
 
-Comparação entre o que o painel espera (`src/services/types.ts` e `src/domain/types.ts`) e o que a [`climex-api`](https://github.com/UNIP-CC7/climex-api) expõe hoje (branch `main`, último commit de 18/05/2026, lida em 05/10/2026). Serve de guia para escrever `src/services/http/` quando a API for publicada.
+Comparação entre o que o painel espera (`src/services/types.ts` e `src/domain/types.ts`) e o que a [`climex-api`](https://github.com/UNIP-CC7/climex-api) expõe. A base é a branch **`develop`** da API (último commit de 04/10/2026), lida em 07/10/2026. A `main` da API está desatualizada (parou em 18/05/2026) e **não** deve ser usada como referência. Serve de guia para escrever `src/services/http/`.
 
 Enquanto isso, o painel usa os serviços simulados (`VITE_USE_MOCKS=true`).
 
+> Correção: a primeira versão deste documento foi escrita lendo a `main` da API e dizia, por engano, que faltavam o prefixo `/v1`, a auditoria, o módulo de administração e as notificações. Todos existem na `develop`.
+
+A fonte de verdade do contrato é o `openapi.json` da própria API (`npm run openapi:export`). O app mobile já gera os tipos a partir dele (`npm run gen:api`, com `openapi-typescript`), e o painel pode fazer o mesmo no lugar dos tipos escritos à mão em `src/domain/types.ts`.
+
 ## 1. Rotas
 
-A API registra os módulos sem o prefixo `/v1` que o TCC descreve (§3.4.1).
+Todas sob o prefixo `/v1`. Papéis: `CIDADAO`, `AGENTE`, `GESTOR`, `ADMINISTRADOR`.
 
-| Módulo | Rotas na API hoje | Quem pode | Serviço do painel | Situação |
-|---|---|---|---|---|
-| Autenticação | `POST /auth/register`, `/otp/send`, `/otp/verify`, `/login`, `/guest`, `/refresh`, `/logout`; `GET /auth/me` | público e autenticado | `auth.login` | Existe. O painel hoje escolhe um perfil, sem credenciais. |
-| Alertas | `GET /alerts`, `GET /alerts/:id`, `POST /alerts`, `PATCH /alerts/:id/status` | leitura opcional; escrita gestor e administrador | `alerts.list/create/close` | Existe. Encerrar vira `PATCH` de status. |
-| Abrigos | `GET /shelters`, `GET /shelters/:id` | leitura opcional | `shelters.list` | **Só leitura.** |
-| Mapa | `GET /map/overview`, `/map/route`, `/map/pois` | leitura opcional | (camadas do mapa) | Existe. O painel ainda não usa. |
-| Socorro | `POST /rescue`, `POST /rescue/sos`, `GET /rescue`, `GET /rescue/:id`, `PATCH /rescue/:id/status` | listar e mudar status: agente, gestor, administrador | `rescue.list/setStatus` | Existe. |
-| Painel (contadores) | não existe | | `dashboard.summary` | **Falta.** Dá para montar no cliente somando alertas, socorro e abrigos. |
-| Relatórios | não existe | | indicadores e CSV | **Falta.** Hoje calculado no navegador. |
-| Usuários | não existe | | `users.list/setRole/setActive` | **Falta** (inclui a promoção de perfil auditada do TCC, §3.4.3). |
-| Auditoria | não existe | | `audit.list` | **Falta** (trilha com hash encadeado, §3.4.7). |
-| Notificações | não existe | | (não usado pelo painel) | Falta na API (o TCC §3.4.3 prevê `/v1/devices`). É necessário para o app mobile, não para o painel. |
+| Serviço do painel | Rota da API | Quem pode | Situação |
+|---|---|---|---|
+| `auth.login` | `POST /v1/auth/login` (telefone e senha), `POST /v1/auth/refresh`, `POST /v1/auth/logout`, `GET /v1/auth/me` | público e autenticado | Existe. O painel hoje só escolhe um perfil. O app usa cadastro e OTP por celular, e o painel pode usar a senha. |
+| `alerts.list` | `GET /v1/alerts` e `GET /v1/alerts/:id` (polígono em GeoJSON) | leitura opcional | Existe. |
+| `alerts.create` | `POST /v1/alerts` (título, descrição, `level`, latitude, longitude, `radiusMeters`, cidade, UF, `polygon` opcional, `expiresAt`) | gestor, administrador | Existe. O painel já trabalha com centro e raio. |
+| `alerts.close` | `PATCH /v1/alerts/:id/status` (`status` e `reason`) | gestor, administrador | Existe. |
+| `shelters.list` | `GET /v1/shelters` e `GET /v1/shelters/:id` | leitura opcional | Existe. |
+| `shelters.update` | `PATCH /v1/shelters/:id` (capacidade, `isActive`, recursos) | **agente**, gestor, administrador | Existe. |
+| `shelters.checkIn` | `POST /v1/shelters/:id/check-in` (`guestCount`, `guestName`) | autenticação opcional (visitante pode) | Existe, mas só registra **entrada**. O painel tem o botão de saída (`-1`), que não tem rota. |
+| (cadastro de abrigo) | não existe | | **Falta** `POST /v1/shelters`. Hoje abrigos entram por seed ou banco. |
+| `rescue.list` | `GET /v1/rescue` (fila ordenada por `nrScore`) | agente, gestor, administrador | Existe. |
+| `rescue.setStatus` | `PATCH /v1/rescue/:id/status` | agente, gestor, administrador | Existe. Concluir (`RESOLVED`) exige `outcomeNote`. |
+| `users.setRole` | `PATCH /v1/admin/users/:id/role` (`role` e `reason` com 5 a 500 caracteres) | administrador | Existe. |
+| `users.list`, `users.setActive` | não existe | | **Falta** listar usuários e ativar ou desativar. |
+| `audit.list` | `GET /v1/audit` e `GET /v1/audit/verify` (integridade da cadeia) | gestor e administrador (a verificação só administrador) | Existe, com hash encadeado de verdade. O painel hoje mostra um hash ilustrativo. |
+| `dashboard.summary` | não existe como rota | | **Falta.** Dá para montar no cliente a partir de alertas, socorro e abrigos. `GET /v1/map/overview` traz alertas ativos e abrigos. |
+| relatórios | não existe | | **Falta.** Hoje calculado no navegador. |
+| (dispositivos, só o app) | `PUT` e `DELETE /v1/devices` | autenticado | Existe. Registra o token de push do celular. |
+| (rota de fuga, só o app) | `GET /v1/map/route`, `GET /v1/map/pois` | leitura opcional | Existe. O painel não usa. |
 
-Abrigos: criar, editar capacidade, situação, recursos e registrar entrada e saída (telas Abrigos e Painel) **não têm rota**. A tela de abrigos precisa de `POST /shelters`, `PATCH /shelters/:id` e check-in e check-out.
-
-## 2. Nomes e valores (enums)
+## 2. Nomes e valores
 
 | Conceito | Painel | API |
 |---|---|---|
@@ -31,26 +40,33 @@ Abrigos: criar, editar capacidade, situação, recursos e registrar entrada e sa
 | Severidade do alerta | `OBSERVACAO`, `ATENCAO`, `ALERTA`, `ALERTA_MAXIMO` | igual |
 | Situação do alerta | `active` (booleano) | `ACTIVE`, `MONITORING`, `RESOLVED`, `EXPIRED` |
 | Tipo de socorro | `ILHADO`, `FERIDO`, `EVACUACAO`, `DESABAMENTO` | os mesmos, mais `OUTROS` |
-| Risco do socorro | número de 1 a 5 (NR) | `BAIXO`, `MEDIO`, `ALTO`, `CRITICO` (campo `nivelRisco`) |
+| Risco do socorro | número de 1 a 5 (NR) | `nivelRisco`: `BAIXO`, `MEDIO`, `ALTO`, `CRITICO`, e `nrScore`, a pontuação inteira |
 | Situação do socorro | `ABERTA`, `EM_ATENDIMENTO`, `CONCLUIDA` | `PENDING`, `ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `CANCELLED` |
+| Abrigo | `ATIVO`, `CANDIDATO`, `INATIVO` e recursos em objeto | `isActive` (booleano) e `hasWater`, `hasFood`, `hasMedical`, `isPetFriendly`, `isAccessible` |
 
 Decisões a tomar na hora de ligar:
 
-- **Risco:** a API devolve 4 faixas, o painel mostra NR de 1 a 5 e o selo SOS. Ou o painel passa a usar as 4 faixas, ou a API devolve também a pontuação numérica. O TCC (§3.3.2) fala em "Nível de Risco (NR)" e em "NR máximo" para o SOS.
-- **Situação do socorro:** mapear `PENDING` para aberta, `ASSIGNED` e `IN_PROGRESS` para em atendimento, `RESOLVED` para concluída. `CANCELLED` não existe no painel.
-- **Perfil:** criar um mapeamento `ADMINISTRADOR` para `ADMIN` na borda do serviço, para não espalhar a diferença pelas telas.
+- **Perfil:** mapear `ADMINISTRADOR` para `ADMIN` na borda do serviço, para não espalhar a diferença pelas telas.
+- **Risco:** a API devolve a faixa e a pontuação, e ordena a fila por `nrScore`. O painel usa uma regra de exemplo própria (`src/lib/risk.ts`), que **deve ser descartada** ao ligar a API. O cálculo real é `calculateNivelRisco` (soma de pesos por tipo, alerta ativo, grupos vulneráveis, número de vítimas, nível da água e risco estrutural; faixas em 30, 55 e 80 pontos), e o SOS entra direto como `CRITICO`. O painel pode exibir as 4 faixas ou converter para 1 a 5. O `nrScore` é descrito no schema como "0-100", mas a soma máxima dos pesos é 165.
+- **Situação do socorro:** `PENDING` vira aberta, `ASSIGNED` e `IN_PROGRESS` viram em atendimento, `RESOLVED` vira concluída. `CANCELLED` não existe no painel.
+- **Alerta ativo:** `ACTIVE` e `MONITORING` contam como ativo, `RESOLVED` e `EXPIRED` não.
+- **Abrigos candidatos:** a API só conhece abrigos do cadastro oficial (`isActive`). Os cerca de 10 mil candidatos do OpenStreetMap continuam como arquivo estático do painel, numa camada à parte, e não passam pela API.
 
 ## 3. Outras diferenças que afetam o painel
 
-- **CORS:** a API usa `origin: false` quando `NODE_ENV=production`. Com isso o navegador bloqueia o painel hospedado na Vercel. A API precisa liberar a origem do painel (por exemplo `https://climex-web-app.vercel.app`).
-- **Cabeçalhos:** o TCC (§3.4.10) lista `X-Request-Id`, `X-Client-Version`, `X-Device-Id` e `Idempotency-Key`. Não conferi se a API exige ou lê esses cabeçalhos.
-- **Sessão:** o TCC descreve token de acesso de 15 minutos mais refresh opaco. A API configura `JWT_ACCESS_EXPIRES=8h` e `JWT_REFRESH_EXPIRES=7d` no `.env.example`. O painel terá de tratar `401` e renovar pelo `POST /auth/refresh`.
-- **Tempo real:** o painel atualiza a cada 30 segundos (`REFRESH_MS` em `src/lib/queries.ts`). A API não tem WebSocket, o que o TCC cita em §3.3.2.
-- **Região:** os abrigos reais do painel vêm de um arquivo estático (`public/data/osm-sp-estado.json`). Na API, `GET /shelters` deve devolver o cadastro oficial da Defesa Civil.
+- **Quem edita abrigos:** a API libera `PATCH /v1/shelters/:id` para **agente**, gestor e administrador. O painel só deixa gestor e administrador (`ROUTE_ROLES`). Ao ligar, o painel deve liberar a tela de abrigos para o agente, o que também alinha o código ao texto do TCC (RF-ABR).
+- **CORS:** a API libera as origens listadas na variável `CORS_ALLOWED_ORIGINS`. O `.env.example` dela já traz `http://localhost:5173`, a porta do painel. Em produção é preciso acrescentar `https://climex-web-app.vercel.app`.
+- **Sessão:** o token de acesso dura 15 minutos e o de renovação é opaco e rotacionado a cada uso (`POST /v1/auth/refresh`). O painel precisa renovar ao receber `401`, com uma única renovação por vez, como faz o app (`src/services/api/client.ts` do mobile).
+- **Cabeçalhos:** o app envia `X-Request-Id`, `X-Client-Version`, `X-Device-Id` e, nas mutações, `Idempotency-Key`. Nas rotas de socorro a API usa a chave de idempotência para descartar repetições. O painel deve enviá-la nas mutações de socorro.
+- **Erros:** a API responde no formato Problem Details (`application/problem+json`, com `code` e `traceId`).
+- **Tempo real:** a API não tem WebSocket. O painel continua com consulta periódica (`REFRESH_MS`).
+- **Saída de abrigo:** não existe rota (só `check-in`). O botão de saída do painel fica sem integração.
+- **Usuários de teste:** o `prisma/seed.ts` da API cria usuários de cada perfil. O painel pode usá-los no desenvolvimento.
 
-## 4. Como ligar, quando a API estiver publicada
+## 4. Como ligar
 
-1. Criar `src/services/http/` com uma implementação de cada interface de `src/services/types.ts` (cliente `fetch` com `VITE_API_URL`, renovação de token em `401`, erros no formato da API).
-2. Escolher a implementação em `src/services/index.ts` por `VITE_USE_MOCKS`, trocando o erro atual por esse caminho.
-3. Manter os mocks para as rotas que a API ainda não tiver (usuários, auditoria, relatórios) até elas existirem.
-4. Liberar o CORS da API para o endereço do painel.
+1. Subir a API (`docker compose up --build`, na `climex-api`) e rodar `npm run db:seed`.
+2. Gerar os tipos do painel a partir do `openapi.json` da API, no lugar dos tipos manuais.
+3. Criar `src/services/http/` com uma implementação de cada interface de `src/services/types.ts` (cliente `fetch` com `VITE_API_URL`, renovação em `401`, cabeçalhos e erros no formato da API) e escolher a implementação em `src/services/index.ts` por `VITE_USE_MOCKS`.
+4. Manter os mocks só para o que a API ainda não tem: listar e desativar usuários, resumo do painel e relatórios, cadastro de abrigo e saída de abrigo.
+5. Liberar a origem do painel em `CORS_ALLOWED_ORIGINS` na API de produção.
