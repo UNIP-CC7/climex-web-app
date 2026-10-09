@@ -235,6 +235,7 @@ export function rescueRow(over: Partial<ApiRescue> = {}): ApiRescue {
     alertId: null,
     assignedAgentId: null,
     createdAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+    resolvedAt: null,
     ...over,
   }
 }
