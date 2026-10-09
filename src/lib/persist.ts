@@ -10,7 +10,7 @@ export const PERSIST_KEY = 'climex.cache'
 export const CACHE_MAX_AGE = 72 * 60 * 60 * 1000
 
 /** Trocar ao mudar o formato dos dados em cache, para descartar o que foi salvo na versão anterior. */
-export const CACHE_BUSTER = 'v2' // v2: risco passou a ser { score, band }
+export const CACHE_BUSTER = 'v3' // v3: o resumo passou a vir da API (maxAlert enxuto, agentsInField sempre número)
 
 /**
  * Só dados operacionais vão para o disco. Ficam de fora:

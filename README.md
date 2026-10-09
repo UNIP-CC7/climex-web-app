@@ -71,7 +71,7 @@ O que muda em relação ao modo simulado:
 
 - **Perfis:** o painel bloqueia o login de cidadão (a API aceita, mas ele usa só o aplicativo).
 - **Risco:** a pontuação (`nrScore`, 0 a 100) e a faixa vêm da API.
-- **Painel (resumo):** a API não tem rota de resumo, então os números são calculados no navegador a partir das listas de alertas, abrigos e socorro. Agentes em campo aparece como `-`.
+- **Painel (resumo), mapa de calor e relatório:** vêm das rotas `/v1/dashboard/*` da API (resumo, mapa de calor por células e relatório com CSV). Em "Agentes em campo" o número é de agentes ativos, e o texto abaixo diz quantos estão em atendimento agora. No Relatórios, o período (24 horas, 7 dias ou 30 dias) escolhe a janela pedida à API.
 - **Abrigos:** as listas mostram só os cadastrados na API (os ativos). No mapa há uma camada opcional, desligada por padrão, com os candidatos do OpenStreetMap (locais não validados, desenhados com um marcador tracejado). Ela baixa o arquivo de ~3 MB só quando é ligada e esconde o candidato que já é um abrigo cadastrado.
 - **Socorro:** a lista da API não traz endereço, nome de quem pediu nem distância; o painel mostra a descrição e `-`.
 - **Usuários:** a tela explica que falta `GET /admin/users` e sai do menu.

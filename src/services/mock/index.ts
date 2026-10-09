@@ -1,4 +1,6 @@
-import type { Alert, AppUser, DashboardSummary, RescueRequest, RiskBand, Role, Shelter, ShelterKind } from '@/domain/types'
+import type { Alert, AppUser, DashboardSummary, Report, RescueRequest, RescueStatus, RiskBand, Role, Shelter, ShelterKind } from '@/domain/types'
+import { heatCells, type HeatCell } from '@/lib/heat'
+import { reportToCsv } from '@/lib/reportCsv'
 import { ALERTS, AUDIT, CENTER, RESCUE, USERS, area, fakeHash } from '@/mocks/seed'
 import { PUBLIC, distanceKm, loadOsmCandidates } from '../osm'
 import type { Services } from '../types'
@@ -77,6 +79,52 @@ function loadShelters(): Promise<Shelter[]> {
 }
 
 const EMPTY_RISK: Record<RiskBand, number> = { CRITICO: 0, ALTO: 0, MEDIO: 0, BAIXO: 0 }
+
+function topAlert(list: Alert[]): DashboardSummary['maxAlert'] {
+  const a = [...list].sort((x, y) => SEV_ORDER[y.severity] - SEV_ORDER[x.severity])[0]
+  return a ? { id: a.id, title: a.title, severity: a.severity, place: a.neighborhood } : null
+}
+
+const STATUS_API: Record<RescueStatus, string> = { ABERTA: 'PENDING', EM_ATENDIMENTO: 'ASSIGNED', CONCLUIDA: 'RESOLVED', CANCELADA: 'CANCELLED' }
+const count = <T>(items: T[], key: (i: T) => string) => items.reduce<Record<string, number>>((m, i) => ({ ...m, [key(i)]: (m[key(i)] ?? 0) + 1 }), {})
+
+/** Relatório do modo simulado: os mesmos números que a API devolve, calculados sobre o estado em memória. */
+function buildMockReport(hours: number, allShelters: Shelter[]): Report {
+  const to = new Date()
+  const from = new Date(to.getTime() - hours * 3_600_000)
+  const inPeriod = rescue.filter((r) => new Date(r.openedAt) >= from)
+  const closed = inPeriod.filter((r) => r.status === 'CONCLUIDA' && r.resolvedAt)
+  const minutes = closed.map((r) => (new Date(r.resolvedAt as string).getTime() - new Date(r.openedAt).getTime()) / 60000)
+  const byRisk = { ...EMPTY_RISK }
+  inPeriod.forEach((r) => byRisk[r.risk.band]++)
+  const created = alerts.filter((a) => new Date(a.issuedAt) >= from)
+  return {
+    periodHours: hours,
+    from: from.toISOString(),
+    to: to.toISOString(),
+    rescue: {
+      total: inPeriod.length,
+      sos: inPeriod.filter((r) => r.sos).length,
+      resolved: inPeriod.filter((r) => r.status === 'CONCLUIDA').length,
+      cancelled: inPeriod.filter((r) => r.status === 'CANCELADA').length,
+      avgResolutionMinutes: minutes.length ? Math.round((minutes.reduce((n, m) => n + m, 0) / minutes.length) * 10) / 10 : null,
+      byStatus: count(inPeriod, (r) => STATUS_API[r.status]),
+      byRisk,
+      byType: count(inPeriod, (r) => r.type),
+    },
+    alerts: { total: created.length, byLevel: count(created, (a) => a.severity) },
+    shelters: allShelters
+      .filter((s) => s.status === 'ATIVO')
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        capacity: s.capacity,
+        occupancy: s.occupancy,
+        available: Math.max(0, s.capacity - s.occupancy),
+        rate: s.capacity > 0 ? Math.round((s.occupancy / s.capacity) * 1000) / 10 : 0,
+      })),
+  }
+}
 const SEV_ORDER = { OBSERVACAO: 0, ATENCAO: 1, ALERTA: 2, ALERTA_MAXIMO: 3 } as const
 
 export const mockServices: Services = {
@@ -157,7 +205,7 @@ export const mockServices: Services = {
       const attending = rescue.filter((r) => r.status === 'EM_ATENDIMENTO')
       return delay({
         activeAlerts: act.length,
-        maxAlert: [...act].sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])[0] ?? null,
+        maxAlert: topAlert(act),
         openRescue: open.length,
         openByRisk: byRisk,
         sheltersWithSpots: active.filter((s) => s.capacity - s.occupancy > 20).length,
@@ -170,6 +218,12 @@ export const mockServices: Services = {
         updatedAt: new Date().toISOString(),
       })
     },
+    heatmap: async (hours: number): Promise<HeatCell[]> => {
+      const since = Date.now() - hours * 3_600_000
+      return delay(heatCells(rescue.filter((r) => new Date(r.openedAt).getTime() >= since)))
+    },
+    report: async (hours: number): Promise<Report> => buildMockReport(hours, await loadShelters()),
+    reportCsv: async (hours: number): Promise<string> => reportToCsv(await buildMockReport(hours, await loadShelters())),
   },
   users: {
     list: () => delay(users.map((u) => ({ ...u }))),

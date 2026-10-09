@@ -122,6 +122,8 @@ export interface ApiRescue {
   alertId: string | null
   assignedAgentId: string | null
   createdAt: string
+  /** quando o atendimento foi concluído; null enquanto estiver em aberto */
+  resolvedAt: string | null
 }
 export interface ApiRescueStatusPatch {
   status: 'ASSIGNED' | 'IN_PROGRESS' | 'RESOLVED' | 'CANCELLED'
@@ -145,4 +147,50 @@ export interface ApiAuditEntry {
 
 export interface ApiChangeRoleResult {
   user: ApiUser
+}
+
+/* ---------- /v1/dashboard ---------- */
+export interface ApiRiskCounts {
+  BAIXO: number
+  MEDIO: number
+  ALTO: number
+  CRITICO: number
+}
+export interface ApiDashboardSummary {
+  activeAlerts: number
+  maxAlert: { id: string; title: string; level: ApiAlertLevel; city: string } | null
+  openRescue: number
+  inProgressRescue: number
+  openByRisk: ApiRiskCounts
+  sheltersActive: number
+  sheltersWithSpots: number
+  spotsFree: number
+  spotsTotal: number
+  /** agentes cadastrados e ativos (não é presença em campo) */
+  agentsActive: number
+  agentsAttending: number
+  updatedAt: string
+}
+export interface ApiHeatmap {
+  periodHours: number
+  cellDegrees: number
+  total: number
+  cells: { latitude: number; longitude: number; count: number }[]
+}
+export interface ApiReport {
+  periodHours: number
+  from: string
+  to: string
+  rescue: {
+    total: number
+    sos: number
+    resolved: number
+    cancelled: number
+    avgResolutionMinutes: number | null
+    byStatus: Record<string, number>
+    byRisk: ApiRiskCounts
+    byType: Record<string, number>
+  }
+  alerts: { total: number; byLevel: Record<string, number> }
+  shelters: { id: string; name: string; capacity: number; currentOccupancy: number; availableSlots: number; occupancyRate: number }[]
 }

@@ -23,7 +23,7 @@ import { useAuth } from '@/features/auth/store'
 import { ago, clock, fmt } from '@/lib/format'
 import { byUrgency } from '@/lib/risk'
 import { useMocks } from '@/services'
-import { useAlerts, useRescue, useSetRescueStatus, useShelters, useSummary } from '@/lib/queries'
+import { useAlerts, useHeatmap, useRescue, useSetRescueStatus, useShelters, useSummary } from '@/lib/queries'
 import { CENTER } from '@/mocks/seed'
 import { Alerted, Item, Occ, RiskRow, Stat, Stats } from './styles'
 
@@ -40,6 +40,7 @@ export default function DashboardScreen() {
   const [alertHeat, setAlertHeat] = useState(false)
   const { user } = useAuth()
   const summary = useSummary()
+  const heatmap = useHeatmap(heat)
   const alerts = useAlerts()
   const shelters = useShelters()
   const rescue = useRescue()
@@ -63,9 +64,7 @@ export default function DashboardScreen() {
             Alertas ativos
           </div>
           <div className="v mono">{s ? s.activeAlerts : '-'}</div>
-          <div className="d">
-            {s?.maxAlert ? `Maior: ${SEVERITY_LABEL[s.maxAlert.severity]}, ${s.maxAlert.neighborhood}` : 'Nenhum alerta no momento'}
-          </div>
+          <div className="d">{s?.maxAlert ? `Maior: ${SEVERITY_LABEL[s.maxAlert.severity]}, ${s.maxAlert.place}` : 'Nenhum alerta no momento'}</div>
         </Alerted>
         <Stat>
           <div className="l">
@@ -104,12 +103,10 @@ export default function DashboardScreen() {
         <Stat>
           <div className="l">
             <PersonSimpleRun size={18} />
-            {s && s.agentsInField == null ? 'Agentes em atendimento' : 'Agentes em campo'}
+            Agentes em campo
           </div>
-          <div className="v mono">{s ? (s.agentsInField ?? s.agentsAttending) : '-'}</div>
-          <div className="d">
-            {!s ? 'carregando' : s.agentsInField == null ? 'a API ainda não informa quem está em campo' : `${s.agentsAttending} em atendimento agora`}
-          </div>
+          <div className="v mono">{s ? s.agentsInField : '-'}</div>
+          <div className="d">{!s ? 'carregando' : `agentes ativos, ${s.agentsAttending} em atendimento agora`}</div>
         </Stat>
       </Stats>
       {summary.isError && <ErrorMsg error={summary.error} />}
@@ -135,7 +132,7 @@ export default function DashboardScreen() {
           <div style={{ flex: 1, minHeight: 420 }}>
             <BaseMap height="100%" zoom={12} center={[-23.428, -46.89]}>
               <AlertLayer alerts={active} />
-              {heat && <HeatLayer items={rescue.data ?? []} />}
+              {heat && <HeatLayer cells={heatmap.data ?? []} />}
               {alertHeat && <AlertHeatLayer alerts={alerts.data ?? []} />}
               <ShelterLayer shelters={nearby} />
               <RescueLayer items={rescue.data ?? []} />
