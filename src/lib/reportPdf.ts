@@ -3,6 +3,10 @@ import { clock } from './format'
 
 export interface ReportData {
   generatedAt: Date
+  /** texto do período do relatório, ex.: "Últimas 24 horas" */
+  periodLabel: string
+  /** total de solicitações do período (do relatório; a tabela abaixo mostra as linhas até o limite) */
+  total: number
   requests: RescueRequest[]
   concluded: number
   /** minutos; null quando não há dado */
@@ -57,16 +61,18 @@ export async function buildReportPdf(data: ReportData): Promise<Blob> {
     y += 14
     doc.text('Dados simulados. Não use como relatório oficial.', left, y)
   }
+  y += 14
+  doc.text(`Período: ${data.periodLabel}`, left, y)
   y += 16
 
   autoTable(doc, {
     startY: y,
     head: [['Indicador', 'Valor']],
     body: [
-      ['Solicitações no período', String(data.requests.length)],
+      ['Solicitações no período', String(data.total)],
       ['Concluídas', String(data.concluded)],
       ['Idade média das solicitações em aberto', minutes(data.openAgeMinutes)],
-      ['Tempo médio de atendimento', minutes(data.attendanceMinutes)],
+      ['Tempo médio de resolução', minutes(data.attendanceMinutes)],
       ['Ocupação dos abrigos ativos', `${data.occupationPercent}%`],
       ['Alertas emitidos', String(data.alertsCount)],
     ],

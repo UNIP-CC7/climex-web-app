@@ -26,10 +26,14 @@ interface RequestOptions {
   auth?: boolean
   /** Token explícito, sem passar pelo armazenamento nem pela renovação automática. Usado só no logout. */
   token?: string
+  /** Devolve o corpo como texto, não como JSON (o CSV do relatório). */
+  text?: boolean
 }
 
 export interface HttpClient {
   get<T>(path: string, query?: Query): Promise<T>
+  /** GET que devolve o corpo como texto, com a mesma sessão e renovação (o CSV do relatório). */
+  text(path: string, query?: Query): Promise<string>
   post<T>(path: string, body?: unknown, opts?: Pick<RequestOptions, 'auth'>): Promise<T>
   patch<T>(path: string, body?: unknown): Promise<T>
   /** Percorre as páginas de uma listagem paginada (limit 100) e junta tudo. */
@@ -190,11 +194,13 @@ export function createHttpClient(opts: ClientOptions = {}): HttpClient {
     }
     if (!res.ok) throw await readProblem(res)
     if (res.status === 204) return undefined as T
+    if (o.text) return (await res.text()) as T
     return readJson<T>(res)
   }
 
   return {
     get: (path, query) => request('GET', path, { query }),
+    text: (path, query) => request('GET', path, { query, text: true }),
     post: (path, body, o) => request('POST', path, { body, auth: o?.auth }),
     patch: (path, body) => request('PATCH', path, { body }),
     async all<T>(path: string, query: Query = {}, maxPages = 10) {

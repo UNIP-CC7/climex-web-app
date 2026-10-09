@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { AlertLayer, BaseMap, AlertHeatLayer, HeatLayer, RescueLayer, ShelterLayer, SEVERITY_COLOR } from '@/components/map'
 import { Page } from '@/components/ui'
 import { SEVERITY_LABEL, type Severity } from '@/domain/types'
-import { useAlerts, useOsmCandidates, useRescue, useShelters } from '@/lib/queries'
+import { useAlerts, useHeatmap, useOsmCandidates, useRescue, useShelters } from '@/lib/queries'
 import { useMocks } from '@/services'
 import { withoutRegistered } from '@/services/osm'
 import { Credit, Frame, Layers, Legend, Loading } from './styles'
@@ -31,6 +31,7 @@ export default function MapScreen() {
     candidates: false,
   })
 
+  const heat = useHeatmap(on.heat)
   const candidatesOn = !useMocks && on.candidates
   const osm = useOsmCandidates(candidatesOn)
   // abrigo cadastrado e candidato no mesmo ponto: vale o cadastrado
@@ -41,7 +42,7 @@ export default function MapScreen() {
       <Frame>
         <BaseMap wheel zoom={13}>
           {on.alerts && <AlertLayer alerts={alerts.data ?? []} />}
-          {on.heat && <HeatLayer items={rescue.data ?? []} />}
+          {on.heat && <HeatLayer cells={heat.data ?? []} />}
           {on.alertHeat && <AlertHeatLayer alerts={alerts.data ?? []} />}
           {on.shelters && <ShelterLayer shelters={shelters.data ?? []} />}
           {candidatesOn && osm.isSuccess && <ShelterLayer shelters={candidates} candidate />}

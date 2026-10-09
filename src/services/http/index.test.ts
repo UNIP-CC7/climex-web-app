@@ -16,7 +16,7 @@ const store: TokenStore = {
     tokens = null
   },
 }
-const client = { get: vi.fn(), post: vi.fn(), patch: vi.fn(), all: vi.fn(), logout: vi.fn() } satisfies Record<
+const client = { get: vi.fn(), text: vi.fn(), post: vi.fn(), patch: vi.fn(), all: vi.fn(), logout: vi.fn() } satisfies Record<
   keyof HttpClient,
   ReturnType<typeof vi.fn>
 >
@@ -206,12 +206,89 @@ describe('serviços HTTP: socorro, resumo, usuários e auditoria', () => {
     expect((await services.rescue.list())[0].risk).toEqual({ score: 91, band: 'CRITICO' })
     expect(client.all).toHaveBeenCalledWith('/rescue')
   })
-  it('o resumo é calculado das três listas', async () => {
-    client.all.mockImplementation((path: string) => Promise.resolve(path === '/rescue' ? [apiRescue] : []))
-    client.get.mockResolvedValue({ data: [], total: 0 })
+  it('o resumo vem de GET /dashboard/summary, sem buscar as três listas', async () => {
+    client.get.mockResolvedValue({
+      activeAlerts: 2,
+      maxAlert: { id: 'a2', title: 'Chuva forte', level: 'ALERTA_MAXIMO', city: 'Santana de Parnaíba' },
+      openRescue: 3,
+      inProgressRescue: 1,
+      openByRisk: { BAIXO: 1, MEDIO: 0, ALTO: 1, CRITICO: 1 },
+      sheltersActive: 4,
+      sheltersWithSpots: 3,
+      spotsFree: 120,
+      spotsTotal: 400,
+      agentsActive: 7,
+      agentsAttending: 2,
+      updatedAt: '2026-10-08T12:00:00.000Z',
+    })
     const s = await services.dashboard.summary()
-    expect(s).toMatchObject({ openRescue: 1, activeAlerts: 0, shelterTotal: 0, simulated: false, agentsInField: null })
-    expect(s.openByRisk.CRITICO).toBe(1)
+    expect(client.get).toHaveBeenCalledWith('/dashboard/summary')
+    expect(client.all).not.toHaveBeenCalled()
+    expect(s).toMatchObject({
+      activeAlerts: 2,
+      openRescue: 3,
+      shelterTotal: 4,
+      sheltersWithSpots: 3,
+      spotsFree: 120,
+      spotsTotal: 400,
+      agentsInField: 7,
+      agentsAttending: 2,
+      simulated: false,
+      updatedAt: '2026-10-08T12:00:00.000Z',
+    })
+    expect(s.maxAlert).toEqual({ id: 'a2', title: 'Chuva forte', severity: 'ALERTA_MAXIMO', place: 'Santana de Parnaíba' })
+    expect(s.openByRisk).toEqual({ BAIXO: 1, MEDIO: 0, ALTO: 1, CRITICO: 1 })
+  })
+  it('o resumo sem alerta no ar e com faixas de risco faltando', async () => {
+    client.get.mockResolvedValue({ activeAlerts: 0, maxAlert: null, openRescue: 0, openByRisk: { CRITICO: 2 }, agentsActive: 0, agentsAttending: 0 })
+    const s = await services.dashboard.summary()
+    expect(s.maxAlert).toBeNull()
+    expect(s.openByRisk).toEqual({ CRITICO: 2, ALTO: 0, MEDIO: 0, BAIXO: 0 })
+  })
+  it('o mapa de calor pede o período e traz a intensidade de cada célula', async () => {
+    client.get.mockResolvedValue({
+      periodHours: 48,
+      cellDegrees: 0.01,
+      total: 12,
+      cells: [
+        { latitude: -23.4, longitude: -46.9, count: 8 },
+        { latitude: -23.5, longitude: -46.8, count: 4 },
+      ],
+    })
+    const cells = await services.dashboard.heatmap(48)
+    expect(client.get).toHaveBeenCalledWith('/dashboard/heatmap', { hours: 48 })
+    expect(cells.map((c) => [c.lat, c.lng, c.count, c.intensity])).toEqual([
+      [-23.4, -46.9, 8, 1],
+      [-23.5, -46.8, 4, 0.5],
+    ])
+  })
+  it('o relatório vem de GET /dashboard/report e o CSV de /report/csv, ambos com o período', async () => {
+    client.get.mockResolvedValue({
+      periodHours: 24,
+      from: '2026-10-07T12:00:00.000Z',
+      to: '2026-10-08T12:00:00.000Z',
+      rescue: {
+        total: 10,
+        sos: 2,
+        resolved: 6,
+        cancelled: 1,
+        avgResolutionMinutes: 32.5,
+        byStatus: { RESOLVED: 6 },
+        byRisk: { ALTO: 4 },
+        byType: { FERIDO: 3 },
+      },
+      alerts: { total: 2, byLevel: { ALERTA: 2 } },
+      shelters: [{ id: 's1', name: 'Ginásio', capacity: 100, currentOccupancy: 40, availableSlots: 60, occupancyRate: 40 }],
+    })
+    const r = await services.dashboard.report(24)
+    expect(client.get).toHaveBeenCalledWith('/dashboard/report', { hours: 24 })
+    expect(r.rescue).toMatchObject({ total: 10, resolved: 6, avgResolutionMinutes: 32.5 })
+    expect(r.rescue.byRisk).toEqual({ CRITICO: 0, ALTO: 4, MEDIO: 0, BAIXO: 0 })
+    expect(r.shelters).toEqual([{ id: 's1', name: 'Ginásio', capacity: 100, occupancy: 40, available: 60, rate: 40 }])
+
+    client.text.mockResolvedValue('Seção,Indicador,Valor')
+    await expect(services.dashboard.reportCsv(168)).resolves.toBe('Seção,Indicador,Valor')
+    expect(client.text).toHaveBeenCalledWith('/dashboard/report/csv', { hours: 168 })
   })
   it('usuários: lista vazia, troca de perfil enviada e ativar/desativar indisponível', async () => {
     await expect(services.users.list()).resolves.toEqual([])

@@ -1,12 +1,26 @@
 import type { Alert, AppUser } from '@/domain/types'
 import type { Services } from '../types'
 import { createHttpClient, type HttpClient } from './client'
-import type { ApiAlert, ApiAuditEntry, ApiChangeRoleResult, ApiCheckInResult, ApiCreateAlert, ApiRescue, ApiShelter, ApiTokenPair } from './dto'
+import type {
+  ApiAlert,
+  ApiAuditEntry,
+  ApiChangeRoleResult,
+  ApiCheckInResult,
+  ApiCreateAlert,
+  ApiDashboardSummary,
+  ApiHeatmap,
+  ApiReport,
+  ApiRescue,
+  ApiShelter,
+  ApiTokenPair,
+} from './dto'
 import {
   alertDescription,
   alertFromApi,
+  heatFromApi,
+  reportFromApi,
+  summaryFromApi,
   auditFromApi,
-  buildSummary,
   rescueFromApi,
   rescueStatusToApi,
   roleToApi,
@@ -92,9 +106,15 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
     },
     dashboard: {
       async summary() {
-        const [alerts, shelters, rescue] = await Promise.all([listAlerts(), listShelters(), listRescue()])
-        return buildSummary(alerts, shelters, rescue)
+        return summaryFromApi(await client.get<ApiDashboardSummary>('/dashboard/summary'))
       },
+      async heatmap(hours) {
+        return heatFromApi(await client.get<ApiHeatmap>('/dashboard/heatmap', { hours }))
+      },
+      async report(hours) {
+        return reportFromApi(await client.get<ApiReport>('/dashboard/report', { hours }))
+      },
+      reportCsv: (hours) => client.text('/dashboard/report/csv', { hours }),
     },
     users: {
       // a API não tem GET /admin/users nem ativar/desativar. A tela Usuários explica a lacuna em vez de listar.

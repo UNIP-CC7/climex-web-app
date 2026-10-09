@@ -24,6 +24,8 @@ const req = (id: string): RescueRequest => ({
 
 const data = (over: Partial<ReportData> = {}): ReportData => ({
   generatedAt: new Date('2026-10-08T15:00:00Z'),
+  periodLabel: 'Últimas 24 horas',
+  total: 2,
   requests: [req('a'), req('b')],
   concluded: 0,
   openAgeMinutes: 12,

@@ -1,7 +1,5 @@
-import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { services, useMocks } from '@/services'
-import { buildSummary } from '@/services/http/mappers'
+import { services } from '@/services'
 import { candidateToShelter, loadOsmCandidates } from '@/services/osm'
 import type { DashboardSummary, RescueStatus, Role, Shelter } from '@/domain/types'
 
@@ -20,36 +18,22 @@ export interface SummaryState {
   error: unknown
 }
 
-/** Modo simulado: o resumo vem do serviço, que calcula em cima do estado simulado. */
-function useSummaryFromService(): SummaryState {
+/** O resumo vem do serviço: da API (GET /v1/dashboard/summary) ou, no modo simulado, do estado simulado. */
+export function useSummary(): SummaryState {
   const q = useQuery({ queryKey: ['summary'], queryFn: services.dashboard.summary, refetchInterval: REFRESH_MS })
   return { data: q.data, dataUpdatedAt: q.dataUpdatedAt, isPending: q.isPending, isError: q.isError, error: q.error }
 }
 
-/**
- * Modo HTTP: a API não tem rota de resumo, então ele é derivado das consultas de alertas, abrigos e socorro que as telas já usam.
- * Não há consulta própria: nenhuma busca repetida e nenhum jeito de o resumo ficar fora de sincronia com as listas.
- */
-function useSummaryFromLists(): SummaryState {
-  const alerts = useAlerts()
-  const shelters = useShelters()
-  const rescue = useRescue()
-  const a = alerts.data
-  const s = shelters.data
-  const r = rescue.data
-  const updatedAt = a && s && r ? Math.min(alerts.dataUpdatedAt, shelters.dataUpdatedAt, rescue.dataUpdatedAt) : 0 // vale a lista mais velha
-  const data = useMemo(() => (a && s && r ? buildSummary(a, s, r, new Date(updatedAt)) : undefined), [a, s, r, updatedAt])
-  return {
-    data,
-    dataUpdatedAt: updatedAt,
-    isPending: alerts.isPending || shelters.isPending || rescue.isPending,
-    isError: alerts.isError || shelters.isError || rescue.isError,
-    error: alerts.error ?? shelters.error ?? rescue.error,
-  }
-}
+/** Janela do mapa de calor: as últimas 24 horas, o padrão da API. */
+export const HEAT_HOURS = 24
 
-// a escolha é uma constante do módulo, então a ordem dos hooks nunca muda entre renderizações
-export const useSummary: () => SummaryState = useMocks ? useSummaryFromService : useSummaryFromLists
+/** Mapa de calor de ocorrências. Só busca quando a camada está ligada. */
+export const useHeatmap = (enabled: boolean, hours = HEAT_HOURS) =>
+  useQuery({ queryKey: ['heatmap', hours], queryFn: () => services.dashboard.heatmap(hours), enabled, refetchInterval: REFRESH_MS })
+
+/** Relatório pós-evento do período. */
+export const useReport = (hours: number) =>
+  useQuery({ queryKey: ['report', hours], queryFn: () => services.dashboard.report(hours), refetchInterval: REFRESH_MS })
 
 /** Candidatos a abrigo do OpenStreetMap, só quando a camada está ligada. O arquivo é estático, então nunca fica velho e não vai para o disco. */
 export const useOsmCandidates = (enabled: boolean) =>
@@ -73,31 +57,31 @@ export function useSetRescueStatus() {
   return useMutation({
     mutationFn: (v: { id: string; status: RescueStatus; agent: string; outcome?: string }) =>
       services.rescue.setStatus(v.id, v.status, v.agent, v.outcome),
-    onSuccess: () => inv('rescue', 'summary', 'audit'),
+    onSuccess: () => inv('rescue', 'summary', 'heatmap', 'report', 'audit'),
   })
 }
 
 export function useCreateAlert() {
   const inv = useInvalidate()
-  return useMutation({ mutationFn: services.alerts.create, onSuccess: () => inv('alerts', 'summary', 'audit') })
+  return useMutation({ mutationFn: services.alerts.create, onSuccess: () => inv('alerts', 'summary', 'report', 'audit') })
 }
 export function useCloseAlert() {
   const inv = useInvalidate()
-  return useMutation({ mutationFn: services.alerts.close, onSuccess: () => inv('alerts', 'summary', 'audit') })
+  return useMutation({ mutationFn: services.alerts.close, onSuccess: () => inv('alerts', 'summary', 'report', 'audit') })
 }
 
 export function useUpdateShelter() {
   const inv = useInvalidate()
   return useMutation({
     mutationFn: (v: { id: string; patch: Partial<Pick<Shelter, 'capacity' | 'status' | 'resources'>> }) => services.shelters.update(v.id, v.patch),
-    onSuccess: () => inv('shelters', 'summary', 'audit'),
+    onSuccess: () => inv('shelters', 'summary', 'report', 'audit'),
   })
 }
 export function useCheckIn() {
   const inv = useInvalidate()
   return useMutation({
     mutationFn: (v: { id: string; delta: number }) => services.shelters.checkIn(v.id, v.delta),
-    onSuccess: () => inv('shelters', 'summary'),
+    onSuccess: () => inv('shelters', 'summary', 'report'),
   })
 }
 

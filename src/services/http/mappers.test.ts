@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { Alert, RescueRequest, Shelter } from '@/domain/types'
 import type { ApiAlert, ApiRescue, ApiShelter } from './dto'
 import {
   alertDescription,
   alertFromApi,
   auditFromApi,
-  buildSummary,
   polygonsFromGeoJson,
   rescueFromApi,
   rescueStatusToApi,
@@ -73,6 +71,7 @@ const apiRescue = (over: Partial<ApiRescue> = {}): ApiRescue => ({
   nrScore: 61,
   isSos: false,
   description: '  Casa alagada ',
+  resolvedAt: null,
   latitude: -23.4,
   longitude: -46.9,
   victimCount: 3,
@@ -280,6 +279,10 @@ describe('socorro', () => {
     expect(rescueFromApi(apiRescue({ description: null })).address).toBe('Sem descrição')
     expect(rescueFromApi(apiRescue()).inAlertArea).toBe(false)
   })
+  it('traz a data de conclusão que a API manda e deixa nula quando não há', () => {
+    expect(rescueFromApi(apiRescue({ status: 'RESOLVED', resolvedAt: '2026-10-08T12:30:00.000Z' })).resolvedAt).toBe('2026-10-08T12:30:00.000Z')
+    expect(rescueFromApi(apiRescue()).resolvedAt).toBeNull()
+  })
   it('faixa desconhecida ou pontuação fora de 0 a 100 não contamina o painel', () => {
     expect(rescueFromApi(apiRescue({ riskLevel: 'XPTO' as never, nrScore: 85 })).risk).toEqual({ score: 85, band: 'CRITICO' })
     expect(rescueFromApi(apiRescue({ nrScore: 250 })).risk.score).toBe(100)
@@ -331,46 +334,5 @@ describe('auditoria', () => {
       previousHash: null,
     })
     expect(n).toMatchObject({ author: 'Sistema', role: null, entity: 'T', status: 0, ip: '-', prevHash: '' })
-  })
-})
-
-describe('resumo do painel', () => {
-  const alerts: Alert[] = [
-    { ...alertFromApi(apiAlert({ id: 'a1', level: 'ATENCAO' })) },
-    { ...alertFromApi(apiAlert({ id: 'a2', level: 'ALERTA_MAXIMO' })) },
-    { ...alertFromApi(apiAlert({ id: 'a3', status: 'RESOLVED' })) },
-  ]
-  const shelters: Shelter[] = [
-    shelterFromApi(apiShelter({ id: 's1', capacity: 100, currentOccupancy: 40 })),
-    shelterFromApi(apiShelter({ id: 's2', capacity: 50, currentOccupancy: 50 })),
-    shelterFromApi(apiShelter({ id: 's3', isActive: false })),
-  ]
-  const rescue: RescueRequest[] = [
-    rescueFromApi(apiRescue({ id: 'r1', riskLevel: 'CRITICO', nrScore: 90 })),
-    rescueFromApi(apiRescue({ id: 'r2', riskLevel: 'BAIXO', nrScore: 10 })),
-    rescueFromApi(apiRescue({ id: 'r3', status: 'ASSIGNED', assignedAgentId: 'ag1' })),
-    rescueFromApi(apiRescue({ id: 'r4', status: 'IN_PROGRESS', assignedAgentId: 'ag1' })),
-    rescueFromApi(apiRescue({ id: 'r5', status: 'RESOLVED' })),
-  ]
-  it('conta alertas, solicitações por faixa, vagas e agentes', () => {
-    const s = buildSummary(alerts, shelters, rescue, new Date('2026-10-07T12:00:00Z'))
-    expect(s.activeAlerts).toBe(2)
-    expect(s.maxAlert?.severity).toBe('ALERTA_MAXIMO')
-    expect(s.openRescue).toBe(2)
-    expect(s.openByRisk).toEqual({ CRITICO: 1, ALTO: 0, MEDIO: 0, BAIXO: 1 })
-    expect(s).toMatchObject({
-      shelterTotal: 2,
-      sheltersWithSpots: 1,
-      spotsFree: 60,
-      spotsTotal: 150,
-      agentsInField: null,
-      agentsAttending: 1,
-      simulated: false,
-    })
-    expect(s.updatedAt).toBe('2026-10-07T12:00:00.000Z')
-  })
-  it('não quebra sem dados', () => {
-    const s = buildSummary([], [], [])
-    expect(s).toMatchObject({ activeAlerts: 0, maxAlert: null, openRescue: 0, spotsFree: 0, spotsTotal: 0 })
   })
 })

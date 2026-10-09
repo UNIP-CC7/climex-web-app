@@ -92,17 +92,25 @@ export interface RescueRequest {
   outcome: string | null
 }
 
+/** O alerta mais grave no ar: o suficiente para o cartão do painel. `place` é o bairro (modo simulado) ou a cidade (API). */
+export interface MaxAlert {
+  id: string
+  title: string
+  severity: Severity
+  place: string
+}
+
 export interface DashboardSummary {
   activeAlerts: number
-  maxAlert: Alert | null
+  maxAlert: MaxAlert | null
   openRescue: number
   openByRisk: Record<RiskBand, number>
   sheltersWithSpots: number
   shelterTotal: number
   spotsFree: number
   spotsTotal: number
-  /** null quando a API não informa quais agentes estão em campo */
-  agentsInField: number | null
+  /** agentes ativos (cadastrados e habilitados); `agentsAttending` diz quantos têm um caso aceito agora */
+  agentsInField: number
   agentsAttending: number
   /** true quando capacidade e ocupação dos abrigos são simuladas */
   simulated: boolean
@@ -129,4 +137,24 @@ export interface AuditEntry {
   ip: string
   hash: string
   prevHash: string
+}
+
+/** Relatório pós-evento de um período (RF-DASH). Os números vêm da API ou, no modo simulado, do estado simulado. */
+export interface Report {
+  periodHours: number
+  from: string
+  to: string
+  rescue: {
+    total: number
+    sos: number
+    resolved: number
+    cancelled: number
+    /** minutos da abertura até a conclusão; null sem nenhuma concluída no período */
+    avgResolutionMinutes: number | null
+    byStatus: Record<string, number>
+    byRisk: Record<RiskBand, number>
+    byType: Record<string, number>
+  }
+  alerts: { total: number; byLevel: Record<string, number> }
+  shelters: { id: string; name: string; capacity: number; occupancy: number; available: number; rate: number }[]
 }

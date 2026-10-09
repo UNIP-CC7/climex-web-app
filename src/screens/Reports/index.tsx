@@ -3,11 +3,18 @@ import { DownloadSimple, FilePdf } from '@phosphor-icons/react'
 import { Btn, Empty, ErrorMsg, Grid, Note, Page, Panel, PanelHead, Skeleton, Table, TableWrap } from '@/components/ui'
 import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, type RescueType } from '@/domain/types'
 import { fmt, toCsv } from '@/lib/format'
-import { averageAttendanceMinutes, averageOpenAgeMinutes } from '@/lib/metrics'
+import { averageOpenAgeMinutes } from '@/lib/metrics'
 import { buildReportPdf, reportFileName } from '@/lib/reportPdf'
-import { useAlerts, useRescue, useShelters } from '@/lib/queries'
-import { useMocks } from '@/services'
+import { useRescue, useReport } from '@/lib/queries'
+import { services, useMocks } from '@/services'
 import { Kpi, Kpis } from './styles'
+
+/** Períodos do relatório pós-evento. A API pede a janela em horas (24 é o padrão dela). */
+const PERIODS = [
+  { hours: 24, label: 'Últimas 24 horas' },
+  { hours: 168, label: 'Últimos 7 dias' },
+  { hours: 720, label: 'Últimos 30 dias' },
+] as const
 
 function download(name: string, content: string) {
   const url = URL.createObjectURL(new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8' }))
@@ -17,19 +24,21 @@ function download(name: string, content: string) {
 }
 
 export default function ReportsScreen() {
+  const [hours, setHours] = useState<number>(PERIODS[0].hours)
+  const report = useReport(hours)
   const rescue = useRescue()
-  const shelters = useShelters()
-  const alerts = useAlerts()
   const [pdfState, setPdfState] = useState<'idle' | 'busy' | 'error'>('idle')
+  const [csvState, setCsvState] = useState<'idle' | 'busy' | 'error'>('idle')
   const pdfBusy = useRef(false) // trava síncrona: o estado só chega no render seguinte
+  const csvBusy = useRef(false)
 
-  if (rescue.isError)
+  if (report.isError || rescue.isError)
     return (
       <Page>
-        <ErrorMsg error={rescue.error} />
+        <ErrorMsg error={report.error ?? rescue.error} />
       </Page>
     )
-  if (rescue.isPending || shelters.isPending || alerts.isPending)
+  if (report.isPending || rescue.isPending)
     return (
       <Page>
         <Panel>
@@ -38,37 +47,60 @@ export default function ReportsScreen() {
       </Page>
     )
 
+  const r = report.data.rescue
   const all = rescue.data
-  const done = all.filter((r) => r.status === 'CONCLUIDA')
+  const since = new Date(report.data.from).getTime()
+  const until = new Date(report.data.to).getTime()
+  const inPeriod = all.filter((x) => {
+    const t = new Date(x.openedAt).getTime()
+    return t >= since && t <= until
+  })
   const openAge = averageOpenAgeMinutes(all)
-  const attendance = averageAttendanceMinutes(all)
-  const active = (shelters.data ?? []).filter((s) => s.status === 'ATIVO')
-  const occ = active.reduce((n, s) => n + s.occupancy, 0)
-  const cap = active.reduce((n, s) => n + s.capacity, 0)
-  const byType = (Object.keys(RESCUE_TYPE_LABEL) as RescueType[]).map((t) => ({ t, n: all.filter((r) => r.type === t).length }))
+  const attendance = r.avgResolutionMinutes == null ? null : Math.round(r.avgResolutionMinutes)
+  const occ = report.data.shelters.reduce((n, s) => n + s.occupancy, 0)
+  const cap = report.data.shelters.reduce((n, s) => n + s.capacity, 0)
+  const alertsTotal = report.data.alerts.total
+  const occPercent = cap ? Math.round((100 * occ) / cap) : 0
+  const periodLabel = PERIODS.find((p) => p.hours === hours)?.label ?? `Últimas ${hours} horas`
+  const byType = (Object.keys(RESCUE_TYPE_LABEL) as RescueType[]).map((t) => ({ t, n: r.byType[t] ?? 0 }))
   const byNb = Object.entries(
-    all.reduce<Record<string, number>>((m, r) => ({ ...m, [r.neighborhood || 'Sem bairro']: (m[r.neighborhood || 'Sem bairro'] ?? 0) + 1 }), {}),
-  ).sort((a, b) => b[1] - a[1])
+    inPeriod.reduce<Record<string, number>>((m, x) => ({ ...m, [x.neighborhood || 'Sem bairro']: (m[x.neighborhood || 'Sem bairro'] ?? 0) + 1 }), {}),
+  ).sort((x, y) => y[1] - x[1])
 
-  function exportCsv() {
-    download(
-      'solicitacoes-climex.csv',
-      toCsv(
-        all.map((r) => ({
-          id: r.id,
-          tipo: RESCUE_TYPE_LABEL[r.type],
-          nivel_risco: r.risk.score,
-          faixa_risco: RISK_BAND_LABEL[r.risk.band],
-          sos: r.sos ? 'sim' : 'nao',
-          situacao: r.status,
-          bairro: r.neighborhood,
-          endereco: r.address,
-          pessoas: r.people,
-          aberta_em: r.openedAt,
-          agente: r.assignedTo ?? '',
-        })),
-      ),
-    )
+  /** Modo HTTP: o CSV consolidado vem da API. Modo simulado: uma linha por solicitação. */
+  async function exportCsv() {
+    if (useMocks) {
+      download(
+        'solicitacoes-climex.csv',
+        toCsv(
+          inPeriod.map((x) => ({
+            id: x.id,
+            tipo: RESCUE_TYPE_LABEL[x.type],
+            nivel_risco: x.risk.score,
+            faixa_risco: RISK_BAND_LABEL[x.risk.band],
+            sos: x.sos ? 'sim' : 'nao',
+            situacao: x.status,
+            bairro: x.neighborhood,
+            endereco: x.address,
+            pessoas: x.people,
+            aberta_em: x.openedAt,
+            agente: x.assignedTo ?? '',
+          })),
+        ),
+      )
+      return
+    }
+    if (csvBusy.current) return
+    csvBusy.current = true
+    setCsvState('busy')
+    try {
+      download('relatorio-climex.csv', await services.dashboard.reportCsv(hours))
+      setCsvState('idle')
+    } catch {
+      setCsvState('error')
+    } finally {
+      csvBusy.current = false
+    }
   }
 
   async function exportPdf() {
@@ -79,12 +111,14 @@ export default function ReportsScreen() {
       const generatedAt = new Date()
       const blob = await buildReportPdf({
         generatedAt,
-        requests: all,
-        concluded: done.length,
+        periodLabel,
+        total: r.total,
+        requests: inPeriod,
+        concluded: r.resolved,
         openAgeMinutes: openAge,
         attendanceMinutes: attendance,
-        occupationPercent: cap ? Math.round((100 * occ) / cap) : 0,
-        alertsCount: (alerts.data ?? []).length,
+        occupationPercent: occPercent,
+        alertsCount: alertsTotal,
         neighborhoods: useMocks ? byNb : null,
         simulated: useMocks,
       })
@@ -104,10 +138,28 @@ export default function ReportsScreen() {
 
   return (
     <Page>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <Btn onClick={exportCsv}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          Período
+          <select
+            aria-label="Período do relatório"
+            value={hours}
+            onChange={(e) => {
+              setHours(Number(e.target.value))
+              setCsvState('idle')
+              setPdfState('idle')
+            }}
+          >
+            {PERIODS.map((p) => (
+              <option key={p.hours} value={p.hours}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Btn onClick={exportCsv} disabled={csvState === 'busy'}>
           <DownloadSimple size={18} />
-          Exportar CSV
+          {csvState === 'busy' ? 'Gerando CSV...' : 'Exportar CSV'}
         </Btn>
         <Btn $ghost onClick={exportPdf} disabled={pdfState === 'busy'}>
           <FilePdf size={18} />
@@ -115,30 +167,31 @@ export default function ReportsScreen() {
         </Btn>
       </div>
       {pdfState === 'error' && <ErrorMsg error={new Error('Não foi possível gerar o PDF. Tente de novo.')} />}
+      {csvState === 'error' && <ErrorMsg error={new Error('Não foi possível baixar o CSV. Tente de novo.')} />}
       <Kpis>
         <Kpi>
           <span>Solicitações no período</span>
-          <b className="mono">{fmt.format(all.length)}</b>
+          <b className="mono">{fmt.format(r.total)}</b>
         </Kpi>
         <Kpi>
           <span>Concluídas</span>
-          <b className="mono">{fmt.format(done.length)}</b>
+          <b className="mono">{fmt.format(r.resolved)}</b>
         </Kpi>
         <Kpi>
           <span>Idade média das solicitações em aberto</span>
           <b className="mono">{openAge == null ? '-' : `${openAge} min`}</b>
         </Kpi>
         <Kpi>
-          <span>Tempo médio de atendimento</span>
+          <span>Tempo médio de resolução</span>
           <b className="mono">{attendance == null ? '-' : `${attendance} min`}</b>
         </Kpi>
         <Kpi>
           <span>Ocupação dos abrigos ativos</span>
-          <b className="mono">{cap ? Math.round((100 * occ) / cap) : 0}%</b>
+          <b className="mono">{occPercent}%</b>
         </Kpi>
         <Kpi>
           <span>Alertas emitidos</span>
-          <b className="mono">{fmt.format((alerts.data ?? []).length)}</b>
+          <b className="mono">{fmt.format(report.data.alerts.total)}</b>
         </Kpi>
       </Kpis>
       <Grid $cols="1fr 1fr">
@@ -191,7 +244,7 @@ export default function ReportsScreen() {
       <Note>
         {useMocks
           ? 'Indicadores calculados sobre dados simulados. O relatório oficial usará o histórico completo do evento, vindo da API.'
-          : 'Indicadores calculados no navegador sobre as solicitações, os alertas e os abrigos que a API devolve. A API ainda não tem rota de relatório.'}
+          : 'Indicadores calculados pela API para o período escolhido. A idade média das solicitações em aberto é calculada no painel, sobre a fila atual.'}
       </Note>
     </Page>
   )

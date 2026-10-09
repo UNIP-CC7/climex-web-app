@@ -15,7 +15,7 @@ import {
 import { theme } from '@/theme'
 import { CENTER } from '@/mocks/seed'
 import { clock } from '@/lib/format'
-import { alertHeatCells, heatCells, type HeatCell } from '@/lib/heat'
+import { alertHeatCells, type HeatCell } from '@/lib/heat'
 
 export const SEVERITY_COLOR: Record<Severity, string> = {
   OBSERVACAO: theme.colors.severity.obs,
@@ -167,9 +167,8 @@ function HeatCircles({ cells, color }: { cells: HeatCell[]; color: string }) {
   )
 }
 
-/** Concentração de ocorrências em aberto: grade de ~550 m, mais quente onde o NR somado é maior. */
-export function HeatLayer({ items }: { items: RescueRequest[] }) {
-  const cells = useMemo(() => heatCells(items), [items])
+/** Concentração de ocorrências: as células vêm prontas (da API, ou da grade local no modo simulado). */
+export function HeatLayer({ cells }: { cells: HeatCell[] }) {
   return <HeatCircles cells={cells} color={theme.colors.danger} />
 }
 
