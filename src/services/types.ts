@@ -7,6 +7,8 @@ import type {
   Report,
   RescueRequest,
   RescueStatus,
+  RiskConfig,
+  RiskConfigVersion,
   Role,
   Severity,
   Shelter,
@@ -61,6 +63,14 @@ export interface UsersService {
 export interface AuditService {
   list(): Promise<AuditEntry[]>
 }
+export interface RiskConfigService {
+  /** Versão em vigor (version 0 = padrão embutido na API, sem versão gravada). */
+  active(): Promise<RiskConfigVersion>
+  /** Versões gravadas, da mais nova para a mais antiga. */
+  history(): Promise<RiskConfigVersion[]>
+  /** Cria uma versão nova e a ativa; nunca sobrescreve. Vale só para solicitações criadas depois. */
+  publish(config: RiskConfig, reason: string): Promise<RiskConfigVersion>
+}
 export interface Services {
   auth: AuthService
   alerts: AlertsService
@@ -69,4 +79,5 @@ export interface Services {
   dashboard: DashboardService
   users: UsersService
   audit: AuditService
+  riskConfig: RiskConfigService
 }

@@ -6,6 +6,7 @@ import {
   Bell,
   CloudLightning,
   FileText,
+  Gauge,
   HouseLine,
   Lifebuoy,
   MapTrifold,
@@ -35,6 +36,7 @@ const ITEMS: Item[] = [
   { to: '/abrigos', label: 'Abrigos', icon: HouseLine },
   { to: '/alertas', label: 'Alertas', icon: Warning },
   { to: '/relatorios', label: 'Relatórios', icon: FileText },
+  { to: '/risco', label: 'Nível de risco', icon: Gauge, group: 'admin' },
   { to: '/usuarios', label: 'Usuários', icon: Users, group: 'admin' },
   { to: '/auditoria', label: 'Auditoria', icon: ShieldCheck, group: 'admin' },
 ]
@@ -45,6 +47,7 @@ const TITLES: Record<string, [string, string]> = {
   '/abrigos': ['Abrigos', 'Cadastro e ocupação'],
   '/alertas': ['Alertas', 'Emissão e encerramento'],
   '/relatorios': ['Relatórios pós-evento', 'Indicadores e exportação'],
+  '/risco': ['Nível de risco', 'Pesos e limiares da triagem de socorro'],
   '/usuarios': ['Usuários', 'Perfis e acesso'],
   '/auditoria': ['Trilha de auditoria', 'Registro encadeado de operações'],
 }

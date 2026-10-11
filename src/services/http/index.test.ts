@@ -1,3 +1,4 @@
+import { DEFAULT_RISK_CONFIG } from '@/lib/riskConfig'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HttpClient } from './client'
 import { createHttpServices } from './index'
@@ -16,7 +17,7 @@ const store: TokenStore = {
     tokens = null
   },
 }
-const client = { get: vi.fn(), text: vi.fn(), post: vi.fn(), patch: vi.fn(), all: vi.fn(), logout: vi.fn() } satisfies Record<
+const client = { get: vi.fn(), text: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn(), all: vi.fn(), logout: vi.fn() } satisfies Record<
   keyof HttpClient,
   ReturnType<typeof vi.fn>
 >
@@ -318,5 +319,27 @@ describe('serviços HTTP: socorro, resumo, usuários e auditoria', () => {
     client.get.mockResolvedValue({ data: [row(1), row(3), row(2)] })
     expect((await services.audit.list()).map((e) => e.seq)).toEqual([3, 2, 1])
     expect(client.get).toHaveBeenCalledWith('/audit', { limit: 100 })
+  })
+
+  it('pesos do NR: lê a versão ativa e o histórico, e publica com PUT enviando a justificativa', async () => {
+    const version = { version: 2, config: DEFAULT_RISK_CONFIG, isActive: true, reason: 'Ajuste', createdBy: 'u1', createdAt: '2026-10-11T10:00:00Z' }
+    client.get.mockResolvedValueOnce(version)
+    await expect(services.riskConfig.active()).resolves.toEqual({
+      version: 2,
+      config: DEFAULT_RISK_CONFIG,
+      isActive: true,
+      reason: 'Ajuste',
+      createdAt: '2026-10-11T10:00:00Z',
+    })
+    expect(client.get).toHaveBeenLastCalledWith('/admin/risk-config')
+
+    client.get.mockResolvedValueOnce({ data: [version, { ...version, version: 1, isActive: false }] })
+    expect((await services.riskConfig.history()).map((v) => v.version)).toEqual([2, 1])
+    expect(client.get).toHaveBeenLastCalledWith('/admin/risk-config/history', { limit: 50 })
+
+    client.put.mockResolvedValue({ ...version, version: 3 })
+    const created = await services.riskConfig.publish(DEFAULT_RISK_CONFIG, 'Mais peso para idosos')
+    expect(client.put).toHaveBeenCalledWith('/admin/risk-config', { config: DEFAULT_RISK_CONFIG, reason: 'Mais peso para idosos' })
+    expect(created.version).toBe(3)
   })
 })

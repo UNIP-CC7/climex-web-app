@@ -101,6 +101,7 @@ Para quem for montar o README raiz do projeto, esta é a ordem em que as partes 
 | `/abrigos` | agente, gestor, admin | candidatos e ativos, busca, edição, entrada e saída |
 | `/alertas` | gestor, admin | emitir (área no mapa) e encerrar |
 | `/relatorios` | gestor, admin | indicadores, exportar CSV, imprimir ou salvar em PDF |
+| `/risco` | gestor, admin | pesos e limiares do Nível de Risco (NR): editar, publicar versão com justificativa, histórico |
 | `/usuarios` | admin | perfis e ativação |
 | `/auditoria` | admin | trilha de auditoria com hash encadeado |
 

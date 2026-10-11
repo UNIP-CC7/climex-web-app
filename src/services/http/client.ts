@@ -36,6 +36,7 @@ export interface HttpClient {
   text(path: string, query?: Query): Promise<string>
   post<T>(path: string, body?: unknown, opts?: Pick<RequestOptions, 'auth'>): Promise<T>
   patch<T>(path: string, body?: unknown): Promise<T>
+  put<T>(path: string, body?: unknown): Promise<T>
   /** Percorre as páginas de uma listagem paginada (limit 100) e junta tudo. */
   all<T>(path: string, query?: Query, maxPages?: number): Promise<T[]>
   /**
@@ -224,6 +225,7 @@ export function createHttpClient(opts: ClientOptions = {}): HttpClient {
     text: (path, query) => request('GET', path, { query, text: true }),
     post: (path, body, o) => request('POST', path, { body, auth: o?.auth }),
     patch: (path, body) => request('PATCH', path, { body }),
+    put: (path, body) => request('PUT', path, { body }),
     async all<T>(path: string, query: Query = {}, maxPages = 10) {
       const out: T[] = []
       for (let page = 1; page <= maxPages; page++) {

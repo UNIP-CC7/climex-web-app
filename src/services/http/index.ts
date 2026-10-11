@@ -10,6 +10,7 @@ import type {
   ApiDashboardSummary,
   ApiHeatmap,
   ApiReport,
+  ApiRiskConfigVersion,
   ApiRescue,
   ApiShelter,
   ApiTokenPair,
@@ -23,6 +24,7 @@ import {
   auditFromApi,
   rescueFromApi,
   rescueStatusToApi,
+  riskVersionFromApi,
   roleToApi,
   SEV_ORDER,
   severityToApi,
@@ -127,6 +129,16 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
         return { id: r.user.id, name: r.user.name, role, phone: r.user.phone, lastAccess: r.user.createdAt, active: true }
       },
       setActive: () => Promise.reject(new Error('A API ainda não permite ativar ou desativar usuários.')),
+    },
+    riskConfig: {
+      active: async () => riskVersionFromApi(await client.get<ApiRiskConfigVersion>('/admin/risk-config')),
+      async history() {
+        const r = await client.get<{ data: ApiRiskConfigVersion[] }>('/admin/risk-config/history', { limit: 50 })
+        return r.data.map(riskVersionFromApi)
+      },
+      async publish(config, reason) {
+        return riskVersionFromApi(await client.put<ApiRiskConfigVersion>('/admin/risk-config', { config, reason }))
+      },
     },
     audit: {
       async list() {
