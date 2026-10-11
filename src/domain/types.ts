@@ -158,3 +158,25 @@ export interface Report {
   alerts: { total: number; byLevel: Record<string, number> }
   shelters: { id: string; name: string; capacity: number; occupancy: number; available: number; rate: number }[]
 }
+
+/**
+ * Pesos e limiares do Nível de Risco (NR) das solicitações de socorro.
+ * Não há protocolo oficial de calibração, então o gestor ajusta e cada mudança vira uma versão nova.
+ */
+export interface RiskConfig {
+  type: { FERIDO: number; ILHADO: number; DESABAMENTO: number; EVACUACAO: number; OUTROS: number }
+  alert: { ALERTA_MAXIMO: number; ALERTA: number; ATENCAO: number; OBSERVACAO: number }
+  water: { SUBMERSO: number; PESCOCO: number; CINTURA: number; JOELHOS: number }
+  structural: { DESABAMENTO_IMINENTE: number; RACHADURAS: number; NENHUM: number }
+  vulnerability: { children: number; elderly: number; disabled: number; medicalNeeds: number }
+  victims: { fromTwo: number; fromFive: number }
+  thresholds: { MEDIO: number; ALTO: number; CRITICO: number }
+}
+
+export interface RiskConfigVersion {
+  version: number
+  config: RiskConfig
+  isActive: boolean
+  reason: string | null
+  createdAt: string
+}

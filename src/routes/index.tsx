@@ -11,6 +11,7 @@ const Rescue = lazy(() => import('@/screens/Rescue'))
 const Shelters = lazy(() => import('@/screens/Shelters'))
 const Alerts = lazy(() => import('@/screens/Alerts'))
 const Reports = lazy(() => import('@/screens/Reports'))
+const RiskConfig = lazy(() => import('@/screens/RiskConfig'))
 const Users = lazy(() => import('@/screens/Users'))
 const Audit = lazy(() => import('@/screens/Audit'))
 
@@ -93,6 +94,14 @@ export const router = createBrowserRouter([
         element: (
           <Guard path="/relatorios">
             <Reports />
+          </Guard>
+        ),
+      },
+      {
+        path: '/risco',
+        element: (
+          <Guard path="/risco">
+            <RiskConfig />
           </Guard>
         ),
       },

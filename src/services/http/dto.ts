@@ -43,6 +43,15 @@ export interface ApiProblem {
   errors?: { field: string; message: string }[]
 }
 
+export interface ApiRiskConfigVersion {
+  version: number
+  config: import('@/domain/types').RiskConfig
+  isActive: boolean
+  reason: string | null
+  createdBy: string | null
+  createdAt: string
+}
+
 export type ApiAlertLevel = 'OBSERVACAO' | 'ATENCAO' | 'ALERTA' | 'ALERTA_MAXIMO'
 export type ApiAlertStatus = 'ACTIVE' | 'MONITORING' | 'RESOLVED' | 'EXPIRED'
 export interface ApiAlert {

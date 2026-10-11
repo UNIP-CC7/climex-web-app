@@ -8,6 +8,7 @@ import type {
   RescueStatus,
   Risk,
   RiskBand,
+  RiskConfigVersion,
   Role,
   Severity,
   Shelter,
@@ -25,6 +26,7 @@ import type {
   ApiHeatmap,
   ApiReport,
   ApiRescue,
+  ApiRiskConfigVersion,
   ApiRescueStatus,
   ApiRescueStatusPatch,
   ApiRole,
@@ -226,6 +228,11 @@ export function rescueStatusToApi(status: RescueStatus, outcome?: string): ApiRe
     default:
       throw new Error('A API não permite reabrir uma solicitação.')
   }
+}
+
+/* ---------- pesos do Nível de Risco ---------- */
+export function riskVersionFromApi(v: ApiRiskConfigVersion): RiskConfigVersion {
+  return { version: v.version, config: v.config, isActive: v.isActive, reason: v.reason, createdAt: v.createdAt }
 }
 
 /* ---------- auditoria ---------- */

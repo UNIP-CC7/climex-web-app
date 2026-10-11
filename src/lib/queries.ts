@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { services } from '@/services'
 import { candidateToShelter, loadOsmCandidates } from '@/services/osm'
-import type { DashboardSummary, RescueStatus, Role, Shelter } from '@/domain/types'
+import type { DashboardSummary, RescueStatus, RiskConfig, Role, Shelter } from '@/domain/types'
 
 /** Atualização automática a cada 30 s (RF-DASH). WebSocket entra quando a API existir. */
 export const REFRESH_MS = 30_000
@@ -46,6 +46,8 @@ export const useOsmCandidates = (enabled: boolean) =>
   })
 export const useUsers = () => useQuery({ queryKey: ['users'], queryFn: services.users.list })
 export const useAudit = () => useQuery({ queryKey: ['audit'], queryFn: services.audit.list })
+export const useRiskConfig = () => useQuery({ queryKey: ['risk-config'], queryFn: services.riskConfig.active })
+export const useRiskHistory = () => useQuery({ queryKey: ['risk-history'], queryFn: services.riskConfig.history })
 
 function useInvalidate() {
   const qc = useQueryClient()
@@ -94,5 +96,13 @@ export function useSetUserActive() {
   return useMutation({
     mutationFn: (v: { id: string; active: boolean }) => services.users.setActive(v.id, v.active),
     onSuccess: () => inv('users', 'audit'),
+  })
+}
+
+export function usePublishRiskConfig() {
+  const inv = useInvalidate()
+  return useMutation({
+    mutationFn: (v: { config: RiskConfig; reason: string }) => services.riskConfig.publish(v.config, v.reason),
+    onSuccess: () => inv('risk-config', 'risk-history', 'audit'),
   })
 }

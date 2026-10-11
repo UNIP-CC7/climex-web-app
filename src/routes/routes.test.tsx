@@ -52,7 +52,11 @@ describe('rotas e perfis', () => {
     app()
     await go('/')
     expect(await screen.findByRole('link', { name: /Relatórios/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Nível de risco/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Usuários/ })).not.toBeInTheDocument()
+    await go('/risco')
+    expect(await screen.findByText(/em vigor/)).toBeInTheDocument()
+    expect(path()).toBe('/risco')
     await go('/usuarios')
     await waitFor(() => expect(path()).toBe('/'))
     await go('/auditoria')
@@ -69,7 +73,8 @@ describe('rotas e perfis', () => {
     await go('/abrigos')
     expect(await screen.findByText(/Abrigos ativos/)).toBeInTheDocument()
     expect(path()).toBe('/abrigos')
-    for (const p of ['/alertas', '/relatorios']) {
+    expect(screen.queryByRole('link', { name: /Nível de risco/ })).not.toBeInTheDocument()
+    for (const p of ['/alertas', '/relatorios', '/risco']) {
       await go(p)
       await waitFor(() => expect(path()).toBe('/'))
     }

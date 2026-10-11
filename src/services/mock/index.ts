@@ -1,4 +1,17 @@
-import type { Alert, AppUser, DashboardSummary, Report, RescueRequest, RescueStatus, RiskBand, Role, Shelter, ShelterKind } from '@/domain/types'
+import type {
+  Alert,
+  AppUser,
+  DashboardSummary,
+  Report,
+  RescueRequest,
+  RescueStatus,
+  RiskBand,
+  RiskConfigVersion,
+  Role,
+  Shelter,
+  ShelterKind,
+} from '@/domain/types'
+import { DEFAULT_RISK_CONFIG } from '@/lib/riskConfig'
 import { heatCells, type HeatCell } from '@/lib/heat'
 import { reportToCsv } from '@/lib/reportCsv'
 import { ALERTS, AUDIT, CENTER, RESCUE, USERS, area, fakeHash } from '@/mocks/seed'
@@ -12,6 +25,15 @@ let alerts: Alert[] = structuredClone(ALERTS)
 let rescue: RescueRequest[] = structuredClone(RESCUE)
 let users: AppUser[] = structuredClone(USERS)
 const audit = structuredClone(AUDIT)
+let riskVersions: RiskConfigVersion[] = [
+  {
+    version: 1,
+    config: structuredClone(DEFAULT_RISK_CONFIG),
+    isActive: true,
+    reason: 'Pesos iniciais (padrão do sistema)',
+    createdAt: '2026-10-10T12:00:00.000Z',
+  },
+]
 
 function log(author: string, role: Role, action: string, entity: string, status = 200) {
   const prev = audit[audit.length - 1]?.hash ?? '0'.repeat(16)
@@ -239,4 +261,20 @@ export const mockServices: Services = {
     },
   },
   audit: { list: () => delay([...audit].reverse()) },
+  riskConfig: {
+    active: () => delay(structuredClone(riskVersions.find((v) => v.isActive) ?? riskVersions[0]!)),
+    history: () => delay(structuredClone([...riskVersions].reverse())),
+    publish: (config, reason) => {
+      const next: RiskConfigVersion = {
+        version: (riskVersions[riskVersions.length - 1]?.version ?? 0) + 1,
+        config: structuredClone(config),
+        isActive: true,
+        reason,
+        createdAt: new Date().toISOString(),
+      }
+      riskVersions = [...riskVersions.map((v) => ({ ...v, isActive: false })), next]
+      log('Marcos Cavalcante', 'GESTOR', 'PUT /admin/risk-config', `RiskConfig v${next.version}`)
+      return delay(structuredClone(next))
+    },
+  },
 }
