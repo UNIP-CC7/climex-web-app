@@ -12,6 +12,12 @@ import type {
   Role,
   Severity,
   Shelter,
+  AlertSyncResult,
+  ShelterCandidate,
+  ShelterConfirmInput,
+  ShelterReviewPage,
+  ShelterReviewQuery,
+  ShelterSyncResult,
 } from '@/domain/types'
 import type { HeatCell } from '@/lib/heat'
 
@@ -80,4 +86,23 @@ export interface Services {
   users: UsersService
   audit: AuditService
   riskConfig: RiskConfigService
+  shelterReview: ShelterReviewService
+  imports: ImportService
+}
+
+export interface ShelterReviewService {
+  /** Lista locais por situação, paginada (equipe). */
+  list(query: ShelterReviewQuery): Promise<ShelterReviewPage>
+  /** Confirma o candidato como abrigo. Exige capacidade maior que zero. */
+  confirm(id: string, input: ShelterConfirmInput): Promise<ShelterCandidate>
+  /** Rejeita o candidato, com o motivo. */
+  reject(id: string, note: string): Promise<ShelterCandidate>
+  /** Devolve um local confirmado ou rejeitado para a lista de candidatos. */
+  reopen(id: string, note?: string): Promise<ShelterCandidate>
+}
+export interface ImportService {
+  /** Busca os avisos do INMET agora (administrador). Pode disparar notificações. */
+  syncAlerts(): Promise<AlertSyncResult>
+  /** Importa candidatos a abrigo da fonte, hoje só o OpenStreetMap (administrador). */
+  syncShelters(): Promise<ShelterSyncResult>
 }

@@ -180,3 +180,71 @@ export interface RiskConfigVersion {
   reason: string | null
   createdAt: string
 }
+
+/** Situação de um local na revisão da Defesa Civil: candidato (importado), confirmado como abrigo ou rejeitado. */
+export type ShelterReviewStatus = 'CANDIDATE' | 'CONFIRMED' | 'REJECTED'
+export const SHELTER_REVIEW_LABEL: Record<ShelterReviewStatus, string> = {
+  CANDIDATE: 'Candidatos',
+  CONFIRMED: 'Confirmados',
+  REJECTED: 'Rejeitados',
+}
+export interface ShelterCandidate {
+  id: string
+  name: string
+  address: string
+  lat: number
+  lng: number
+  /** categoria na fonte, por exemplo amenity=school */
+  category: string | null
+  source: string | null
+  /** o local sumiu da fonte na última importação; nada é apagado, só sinalizado */
+  removedFromSource: boolean
+  status: ShelterReviewStatus
+  capacity: number
+  occupancy: number
+  phone: string | null
+  resources: Shelter['resources']
+  reviewedAt: string | null
+  /** nota da revisão, visível só para a equipe */
+  reviewNote: string | null
+}
+export interface ShelterReviewPage {
+  items: ShelterCandidate[]
+  /** total que atende aos filtros, antes da paginação */
+  total: number
+}
+export interface ShelterReviewQuery {
+  status: ShelterReviewStatus
+  search?: string
+  limit: number
+  offset: number
+}
+/** Dados que o gestor informa ao confirmar um candidato como abrigo. */
+export interface ShelterConfirmInput {
+  capacity: number
+  phone?: string
+  note?: string
+  resources: Shelter['resources']
+}
+
+export interface AlertSyncResult {
+  fetched: number
+  invalid: number
+  inScope: number
+  created: number
+  updated: number
+  reactivated: number
+  resolved: number
+  expired: number
+  /** alertas que dispararam notificação push */
+  notified: number
+}
+export interface ShelterSyncResult {
+  source: string
+  fetched: number
+  skipped: number
+  created: number
+  updated: number
+  unchanged: number
+  removedFromSource: number
+}

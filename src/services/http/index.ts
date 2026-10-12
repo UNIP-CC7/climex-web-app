@@ -13,11 +13,17 @@ import type {
   ApiRiskConfigVersion,
   ApiRescue,
   ApiShelter,
+  ApiReviewList,
+  ApiReviewShelter,
+  ApiSyncInmet,
+  ApiSyncShelters,
   ApiTokenPair,
 } from './dto'
 import {
   alertDescription,
   alertFromApi,
+  candidateFromApi,
+  confirmToApiPatch,
   heatFromApi,
   reportFromApi,
   summaryFromApi,
@@ -144,6 +150,46 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
       async list() {
         const rows = await client.get<{ data: ApiAuditEntry[] }>('/audit', { limit: 100 })
         return rows.data.map(auditFromApi).sort((a, b) => b.seq - a.seq)
+      },
+    },
+    shelterReview: {
+      async list({ status, search, limit, offset }) {
+        const q = search?.trim()
+        const r = await client.get<ApiReviewList>('/shelters', { status, limit, offset, ...(q ? { search: q } : {}) })
+        return { items: r.data.map(candidateFromApi), total: r.total }
+      },
+      // a API confirma em dois passos: os dados (capacidade e recursos) em PATCH /shelters/:id e a decisão em /status.
+      // Se o segundo falhar, o primeiro já valeu, o que é inofensivo para um candidato.
+      async confirm(id, input) {
+        await client.patch<ApiShelter>(`/shelters/${seg(id)}`, confirmToApiPatch(input))
+        const note = input.note?.trim()
+        return candidateFromApi(
+          await client.patch<ApiReviewShelter>(`/shelters/${seg(id)}/status`, { status: 'CONFIRMED', ...(note ? { note } : {}) }),
+        )
+      },
+      async reject(id, note) {
+        return candidateFromApi(await client.patch<ApiReviewShelter>(`/shelters/${seg(id)}/status`, { status: 'REJECTED', note: note.trim() }))
+      },
+      async reopen(id, note) {
+        const text = note?.trim()
+        return candidateFromApi(
+          await client.patch<ApiReviewShelter>(`/shelters/${seg(id)}/status`, { status: 'CANDIDATE', ...(text ? { note: text } : {}) }),
+        )
+      },
+    },
+    imports: {
+      syncAlerts: () => client.post<ApiSyncInmet>('/admin/alerts/sync-inmet'),
+      async syncShelters() {
+        const r = await client.post<ApiSyncShelters>('/admin/shelters/sync/OSM')
+        return {
+          source: r.source,
+          fetched: r.fetched,
+          skipped: r.skipped,
+          created: r.created,
+          updated: r.updated,
+          unchanged: r.unchanged,
+          removedFromSource: r.removedFromSource,
+        }
       },
     },
   }

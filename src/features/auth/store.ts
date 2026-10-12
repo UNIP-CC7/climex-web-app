@@ -60,6 +60,7 @@ export const ROUTE_ROLES: Record<string, Role[]> = {
   '/mapa': ['AGENTE', 'GESTOR', 'ADMIN'],
   '/socorro': ['AGENTE', 'GESTOR', 'ADMIN'],
   '/abrigos': ['AGENTE', 'GESTOR', 'ADMIN'], // a API também libera PATCH /v1/shelters/:id para o agente
+  '/abrigos/revisao': ['GESTOR', 'ADMIN'], // a API restringe PATCH /v1/shelters/:id/status a gestor e administrador
   '/alertas': ['GESTOR', 'ADMIN'],
   '/relatorios': ['GESTOR', 'ADMIN'],
   '/risco': ['GESTOR', 'ADMIN'],

@@ -4,6 +4,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowsClockwise,
   Bell,
+  ClipboardText,
   CloudLightning,
   FileText,
   Gauge,
@@ -36,6 +37,7 @@ const ITEMS: Item[] = [
   { to: '/abrigos', label: 'Abrigos', icon: HouseLine },
   { to: '/alertas', label: 'Alertas', icon: Warning },
   { to: '/relatorios', label: 'Relatórios', icon: FileText },
+  { to: '/abrigos/revisao', label: 'Revisão de abrigos', icon: ClipboardText, group: 'admin' },
   { to: '/risco', label: 'Nível de risco', icon: Gauge, group: 'admin' },
   { to: '/usuarios', label: 'Usuários', icon: Users, group: 'admin' },
   { to: '/auditoria', label: 'Auditoria', icon: ShieldCheck, group: 'admin' },
@@ -45,6 +47,7 @@ const TITLES: Record<string, [string, string]> = {
   '/mapa': ['Mapa operacional', 'Alertas, abrigos e solicitações'],
   '/socorro': ['Fila de socorro', 'Triagem por nível de risco'],
   '/abrigos': ['Abrigos', 'Cadastro e ocupação'],
+  '/abrigos/revisao': ['Revisão de abrigos', 'Candidatos, confirmação e importação'],
   '/alertas': ['Alertas', 'Emissão e encerramento'],
   '/relatorios': ['Relatórios pós-evento', 'Indicadores e exportação'],
   '/risco': ['Nível de risco', 'Pesos e limiares da triagem de socorro'],
@@ -94,7 +97,7 @@ export function AppShell() {
               <NavLink
                 key={i.to}
                 to={i.to}
-                end={i.to === '/'}
+                end={i.to === '/' || i.to === '/abrigos'}
                 className={i.to === '/abrigos' || i.to === '/alertas' || i.to === '/relatorios' ? 'extra' : undefined}
               >
                 <i.icon size={20} />
