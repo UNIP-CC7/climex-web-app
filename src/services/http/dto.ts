@@ -106,6 +106,7 @@ export interface ApiShelterPatch {
   hasWater?: boolean
   hasFood?: boolean
   hasMedical?: boolean
+  contactPhone?: string
   isAccessible?: boolean
   isPetFriendly?: boolean
 }
@@ -202,4 +203,43 @@ export interface ApiReport {
   }
   alerts: { total: number; byLevel: Record<string, number> }
   shelters: { id: string; name: string; capacity: number; currentOccupancy: number; availableSlots: number; occupancyRate: number }[]
+}
+
+export type ApiShelterStatus = 'CANDIDATE' | 'CONFIRMED' | 'REJECTED'
+/** Abrigo com os campos de revisão, que a API devolve para a equipe. */
+export interface ApiReviewShelter extends ApiShelter {
+  status: ApiShelterStatus
+  source: string | null
+  sourceCategory: string | null
+  sourceRemovedAt: string | null
+  reviewedAt: string | null
+  reviewNote: string | null
+}
+export interface ApiReviewList {
+  data: ApiReviewShelter[]
+  total: number
+}
+export interface ApiShelterStatusBody {
+  status: ApiShelterStatus
+  note?: string
+}
+export interface ApiSyncInmet {
+  fetched: number
+  invalid: number
+  inScope: number
+  created: number
+  updated: number
+  reactivated: number
+  resolved: number
+  expired: number
+  notified: number
+}
+export interface ApiSyncShelters {
+  source: string
+  fetched: number
+  skipped: number
+  created: number
+  updated: number
+  unchanged: number
+  removedFromSource: number
 }

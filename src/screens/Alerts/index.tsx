@@ -20,6 +20,8 @@ import { SEVERITY_LABEL, type LatLng, type Severity } from '@/domain/types'
 import { clock } from '@/lib/format'
 import { formatRadius, formatRadiusInput, kmToSlider, parseRadiusKm, sliderToKm } from '@/lib/radius'
 import { useAlerts, useCloseAlert, useCreateAlert } from '@/lib/queries'
+import { useAuth } from '@/features/auth/store'
+import { InmetImport } from './InmetImport'
 import { CENTER } from '@/mocks/seed'
 import { Split } from './styles'
 
@@ -32,6 +34,7 @@ function Picker({ onPick }: { onPick: (p: LatLng) => void }) {
 
 export default function AlertsScreen() {
   const { data, isPending, isError, error } = useAlerts()
+  const role = useAuth((s) => s.user?.role)
   const create = useCreateAlert()
   const close = useCloseAlert()
   const [center, setCenter] = useState<LatLng>(CENTER)
@@ -62,6 +65,7 @@ export default function AlertsScreen() {
 
   return (
     <Page>
+      {role === 'ADMIN' && <InmetImport />}
       <Split>
         <Panel role="region" aria-label="Novo alerta">
           <PanelHead>
