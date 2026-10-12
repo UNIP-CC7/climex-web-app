@@ -1,4 +1,4 @@
-import type { Shelter, ShelterCandidate, ShelterReviewPage, ShelterReviewQuery } from '@/domain/types'
+import type { Bbox, Shelter, ShelterCandidate, ShelterReviewPage, ShelterReviewQuery } from '@/domain/types'
 import { shelterKindFromName } from '@/services/http/mappers'
 
 /** Quantos candidatos a camada do mapa carrega no máximo. Acima disso o mapa avisa que está mostrando só parte. */
@@ -32,16 +32,20 @@ export interface MapCandidates {
   total: number
 }
 
-/** Lê os candidatos da API em páginas, até acabarem ou até o teto. Os confirmados e rejeitados não entram. */
+/** Lê os candidatos da API em páginas, até acabarem ou até o teto, só dentro da área (`bbox`) quando ela é informada. */
 export async function loadMapCandidates(
   list: (q: ShelterReviewQuery) => Promise<ShelterReviewPage>,
+  bbox: Bbox | null,
   cap: number = MAP_CANDIDATE_CAP,
+  /** quando a área muda no meio da leitura, a leitura para na página em que estiver */
+  signal?: AbortSignal,
 ): Promise<MapCandidates> {
   const items: ShelterCandidate[] = []
   let total = 0
   while (items.length < cap) {
+    signal?.throwIfAborted()
     const limit = Math.min(CANDIDATE_PAGE, cap - items.length)
-    const page = await list({ status: 'CANDIDATE', limit, offset: items.length })
+    const page = await list({ status: 'CANDIDATE', limit, offset: items.length, ...(bbox ? { bbox } : {}) })
     total = page.total
     items.push(...page.items)
     if (page.items.length < limit || items.length >= total) break

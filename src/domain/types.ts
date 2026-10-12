@@ -218,6 +218,8 @@ export interface ShelterReviewQuery {
   search?: string
   limit: number
   offset: number
+  /** só locais dentro desta caixa geográfica (apenas a equipe pode usar) */
+  bbox?: Bbox
 }
 /** Dados que o gestor informa ao confirmar um candidato como abrigo. */
 export interface ShelterConfirmInput {
@@ -247,4 +249,12 @@ export interface ShelterSyncResult {
   updated: number
   unchanged: number
   removedFromSource: number
+}
+
+/** Caixa geográfica em graus: oeste, sul, leste, norte. */
+export interface Bbox {
+  minLng: number
+  minLat: number
+  maxLng: number
+  maxLat: number
 }

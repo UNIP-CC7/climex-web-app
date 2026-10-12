@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { AlertLayer, BaseMap, AlertHeatLayer, HeatLayer, RescueLayer, ShelterLayer, SEVERITY_COLOR } from '@/components/map'
 import { Page } from '@/components/ui'
+import { bboxKey, snapBbox } from '@/lib/bbox'
 import { fmt } from '@/lib/format'
-import { SEVERITY_LABEL, type Severity } from '@/domain/types'
+import { SEVERITY_LABEL, type Bbox, type Severity } from '@/domain/types'
 import { useAlerts, useHeatmap, useMapCandidates, useRescue, useShelters } from '@/lib/queries'
 import { useMocks } from '@/services'
 import { Credit, Frame, Layers, Legend, Loading } from './styles'
@@ -33,13 +34,23 @@ export default function MapScreen() {
 
   const heat = useHeatmap(on.heat)
   const candidatesOn = !useMocks && on.candidates
-  const cands = useMapCandidates(candidatesOn)
+  // área visível (alargada e na grade): é o que pedimos à API, e só muda quando o mapa anda de verdade
+  const [area, setArea] = useState<Bbox | null>(null)
+  const onBounds = useCallback(
+    (b: Bbox) =>
+      setArea((prev) => {
+        const next = snapBbox(b)
+        return bboxKey(prev) === bboxKey(next) ? prev : next
+      }),
+    [],
+  )
+  const cands = useMapCandidates(candidatesOn, area)
   const hidden = cands.data ? cands.data.total - cands.data.items.length : 0
 
   return (
     <Page>
       <Frame>
-        <BaseMap wheel zoom={13}>
+        <BaseMap wheel zoom={13} onBounds={onBounds}>
           {on.alerts && <AlertLayer alerts={alerts.data ?? []} />}
           {on.heat && <HeatLayer cells={heat.data ?? []} />}
           {on.alertHeat && <AlertHeatLayer alerts={alerts.data ?? []} />}
@@ -69,7 +80,9 @@ export default function MapScreen() {
               © colaboradores do OpenStreetMap
             </a>{' '}
             (licença ODbL). Não são abrigos oficiais.
-            {hidden > 0 && cands.data && ` Mostrando ${fmt.format(cands.data.items.length)} de ${fmt.format(cands.data.total)} candidatos.`}
+            {hidden > 0 &&
+              cands.data &&
+              ` Mostrando ${fmt.format(cands.data.items.length)} de ${fmt.format(cands.data.total)} candidatos nesta área. Aproxime o mapa para ver os demais.`}
           </Credit>
         )}
         <Legend>

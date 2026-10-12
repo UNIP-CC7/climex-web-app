@@ -1,7 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { services } from '@/services'
+import { bboxKey } from './bbox'
 import { loadMapCandidates } from './candidates'
-import type { DashboardSummary, RescueStatus, RiskConfig, Role, Shelter, ShelterConfirmInput, ShelterReviewQuery } from '@/domain/types'
+import type { Bbox, DashboardSummary, RescueStatus, RiskConfig, Role, Shelter, ShelterConfirmInput, ShelterReviewQuery } from '@/domain/types'
 
 /** Atualização automática a cada 30 s (RF-DASH). WebSocket entra quando a API existir. */
 export const REFRESH_MS = 30_000
@@ -36,11 +37,18 @@ export const useReport = (hours: number) =>
   useQuery({ queryKey: ['report', hours], queryFn: () => services.dashboard.report(hours), refetchInterval: REFRESH_MS })
 
 /**
- * Candidatos a abrigo da API para a camada do mapa, só quando ela está ligada. A chave começa com `shelter-review`,
- * então qualquer decisão da revisão (confirmar, rejeitar, devolver, importar) também atualiza o mapa.
+ * Candidatos a abrigo da API para a camada do mapa, só dentro da área visível e só quando a camada está ligada. A chave
+ * começa com `shelter-review`, então qualquer decisão da revisão (confirmar, rejeitar, devolver, importar) também atualiza o mapa.
+ * Ao mexer no mapa os pontos antigos ficam na tela até os novos chegarem.
  */
-export const useMapCandidates = (enabled: boolean) =>
-  useQuery({ queryKey: ['shelter-review', 'map'], queryFn: () => loadMapCandidates(services.shelterReview.list), enabled, staleTime: 60_000 })
+export const useMapCandidates = (enabled: boolean, area: Bbox | null) =>
+  useQuery({
+    queryKey: ['shelter-review', 'map', bboxKey(area)],
+    queryFn: ({ signal }) => loadMapCandidates(services.shelterReview.list, area, undefined, signal),
+    enabled: enabled && area != null,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  })
 export const useUsers = () => useQuery({ queryKey: ['users'], queryFn: services.users.list })
 export const useAudit = () => useQuery({ queryKey: ['audit'], queryFn: services.audit.list })
 export const useRiskConfig = () => useQuery({ queryKey: ['risk-config'], queryFn: services.riskConfig.active })

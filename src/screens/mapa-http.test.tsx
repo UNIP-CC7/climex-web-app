@@ -1,14 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
-import type { Shelter, ShelterCandidate, ShelterReviewQuery } from '@/domain/types'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
+import type { Bbox, Shelter, ShelterCandidate, ShelterReviewQuery } from '@/domain/types'
+import { snapBbox, toBboxParam } from '@/lib/bbox'
 import { loginAs, renderWithApp } from '@/test-utils'
 import MapScreen from './MapScreen'
 
+// A área que o mapa "enxerga": o teste a move chamando `view.emit`, como o Leaflet faria ao terminar de arrastar.
+const view = vi.hoisted(() => ({
+  emit: null as ((b: Bbox) => void) | null,
+  initial: { minLng: -46.993, minLat: -23.547, maxLng: -46.803, maxLat: -23.353 } as Bbox,
+}))
+
 // O Leaflet precisa de um navegador de verdade; aqui as camadas viram contadores.
 vi.mock('@/components/map', async () => {
-  const { createElement } = await import('react')
+  const { createElement, useEffect } = await import('react')
+  function BaseMap({ children, onBounds }: { children?: unknown; onBounds?: (b: Bbox) => void }) {
+    view.emit = onBounds ?? null
+    useEffect(() => onBounds?.(view.initial), []) // eslint-disable-line react-hooks/exhaustive-deps
+    return createElement('div', { 'data-testid': 'mapa' }, children as never)
+  }
   return {
-    BaseMap: ({ children }: { children?: unknown }) => createElement('div', { 'data-testid': 'mapa' }, children as never),
+    BaseMap,
     AlertLayer: () => null,
     HeatLayer: () => null,
     AlertHeatLayer: () => null,
@@ -111,7 +123,35 @@ describe('Mapa em modo HTTP: candidatos vindos da API', () => {
     expect(screen.getByText(/licença ODbL/)).toBeInTheDocument()
     expect(screen.queryByText(/Mostrando/)).not.toBeInTheDocument()
     expect(api.review).toHaveBeenCalledTimes(1)
-    expect(api.review).toHaveBeenCalledWith({ status: 'CANDIDATE', limit: 200, offset: 0 })
+    expect(api.review).toHaveBeenCalledWith({ status: 'CANDIDATE', limit: 200, offset: 0, bbox: snapBbox(view.initial) })
+  })
+
+  it('pede só a área visível, alargada, no formato da API', async () => {
+    renderMap()
+    await screen.findByTestId('abrigos-no-mapa')
+    fireEvent.click(camada())
+    await screen.findByTestId('candidatos-no-mapa')
+    const bbox = (api.review.mock.calls[0]?.[0] as ShelterReviewQuery).bbox as Bbox
+    expect(bbox.minLng).toBeLessThan(view.initial.minLng)
+    expect(bbox.maxLat).toBeGreaterThan(view.initial.maxLat)
+    expect(toBboxParam(bbox)).toMatch(/^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/)
+  })
+
+  it('mexer pouco no mapa não consulta de novo, mas ir para outra região consulta', async () => {
+    renderMap()
+    await screen.findByTestId('abrigos-no-mapa')
+    fireEvent.click(camada())
+    await screen.findByTestId('candidatos-no-mapa')
+    expect(api.review).toHaveBeenCalledTimes(1)
+
+    act(() => view.emit?.({ minLng: -46.995, minLat: -23.549, maxLng: -46.805, maxLat: -23.355 })) // arrasto de ~200 m
+    await screen.findByTestId('candidatos-no-mapa')
+    expect(api.review).toHaveBeenCalledTimes(1)
+
+    act(() => view.emit?.({ minLng: -46.5, minLat: -23.547, maxLng: -46.31, maxLat: -23.353 })) // outra região
+    await waitFor(() => expect(api.review).toHaveBeenCalledTimes(2))
+    const second = (api.review.mock.calls[1]?.[0] as ShelterReviewQuery).bbox as Bbox
+    expect(second.minLng).toBeGreaterThan(-46.7)
   })
 
   it('busca em páginas de 200 até acabarem os candidatos', async () => {
@@ -130,7 +170,7 @@ describe('Mapa em modo HTTP: candidatos vindos da API', () => {
     fireEvent.click(camada())
     expect(await screen.findByTestId('candidatos-no-mapa')).toHaveTextContent('2000')
     expect(api.review).toHaveBeenCalledTimes(10)
-    expect(screen.getByText(/Mostrando 2\.000 de 5\.000 candidatos\./)).toBeInTheDocument()
+    expect(screen.getByText(/Mostrando 2\.000 de 5\.000 candidatos nesta área\. Aproxime o mapa/)).toBeInTheDocument()
   })
 
   it('desligar esconde a camada e ligar de novo não consulta outra vez', async () => {

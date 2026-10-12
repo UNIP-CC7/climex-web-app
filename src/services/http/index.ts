@@ -1,5 +1,6 @@
 import type { Alert, AppUser } from '@/domain/types'
 import type { Services } from '../types'
+import { toBboxParam } from '@/lib/bbox'
 import { createHttpClient, type HttpClient } from './client'
 import type {
   ApiAlert,
@@ -153,9 +154,15 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
       },
     },
     shelterReview: {
-      async list({ status, search, limit, offset }) {
+      async list({ status, search, limit, offset, bbox }) {
         const q = search?.trim()
-        const r = await client.get<ApiReviewList>('/shelters', { status, limit, offset, ...(q ? { search: q } : {}) })
+        const r = await client.get<ApiReviewList>('/shelters', {
+          status,
+          limit,
+          offset,
+          ...(q ? { search: q } : {}),
+          ...(bbox ? { bbox: toBboxParam(bbox) } : {}),
+        })
         return { items: r.data.map(candidateFromApi), total: r.total }
       },
       // a API confirma em dois passos: os dados (capacidade e recursos) em PATCH /shelters/:id e a decisão em /status.
