@@ -1,7 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { services } from '@/services'
 import { candidateToShelter, loadOsmCandidates } from '@/services/osm'
-import type { DashboardSummary, RescueStatus, RiskConfig, Role, Shelter } from '@/domain/types'
+import type { DashboardSummary, RescueStatus, RiskConfig, Role, Shelter, ShelterConfirmInput, ShelterReviewQuery } from '@/domain/types'
 
 /** Atualização automática a cada 30 s (RF-DASH). WebSocket entra quando a API existir. */
 export const REFRESH_MS = 30_000
@@ -105,4 +105,40 @@ export function usePublishRiskConfig() {
     mutationFn: (v: { config: RiskConfig; reason: string }) => services.riskConfig.publish(v.config, v.reason),
     onSuccess: () => inv('risk-config', 'risk-history', 'audit'),
   })
+}
+
+/** Locais por situação na revisão de abrigos. Não vai para o disco: é dado da equipe e muda a cada decisão. */
+export const useShelterReview = (query: ShelterReviewQuery) =>
+  useQuery({ queryKey: ['shelter-review', query], queryFn: () => services.shelterReview.list(query), placeholderData: keepPreviousData })
+
+export function useConfirmShelter() {
+  const inv = useInvalidate()
+  return useMutation({
+    mutationFn: (v: { id: string; input: ShelterConfirmInput }) => services.shelterReview.confirm(v.id, v.input),
+    // também no erro: a confirmação são dois passos, e o primeiro (capacidade e recursos) pode ter valido
+    onSettled: () => inv('shelter-review', 'shelters', 'summary', 'report', 'audit'),
+  })
+}
+export function useRejectShelter() {
+  const inv = useInvalidate()
+  return useMutation({
+    mutationFn: (v: { id: string; note: string }) => services.shelterReview.reject(v.id, v.note),
+    onSuccess: () => inv('shelter-review', 'shelters', 'audit'),
+  })
+}
+export function useReopenShelter() {
+  const inv = useInvalidate()
+  return useMutation({
+    mutationFn: (v: { id: string; note?: string }) => services.shelterReview.reopen(v.id, v.note),
+    onSuccess: () => inv('shelter-review', 'shelters', 'summary', 'report', 'audit'),
+  })
+}
+
+export function useSyncAlerts() {
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: services.imports.syncAlerts, onSuccess: () => inv('alerts', 'summary', 'report', 'audit') })
+}
+export function useSyncShelters() {
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: services.imports.syncShelters, onSuccess: () => inv('shelter-review', 'audit') })
 }

@@ -9,6 +9,7 @@ const Dashboard = lazy(() => import('@/screens/Dashboard'))
 const MapScreen = lazy(() => import('@/screens/MapScreen'))
 const Rescue = lazy(() => import('@/screens/Rescue'))
 const Shelters = lazy(() => import('@/screens/Shelters'))
+const ShelterReview = lazy(() => import('@/screens/ShelterReview'))
 const Alerts = lazy(() => import('@/screens/Alerts'))
 const Reports = lazy(() => import('@/screens/Reports'))
 const RiskConfig = lazy(() => import('@/screens/RiskConfig'))
@@ -78,6 +79,14 @@ export const router = createBrowserRouter([
         element: (
           <Guard path="/abrigos">
             <Shelters />
+          </Guard>
+        ),
+      },
+      {
+        path: '/abrigos/revisao',
+        element: (
+          <Guard path="/abrigos/revisao">
+            <ShelterReview />
           </Guard>
         ),
       },

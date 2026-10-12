@@ -16,6 +16,7 @@ import { heatCells, type HeatCell } from '@/lib/heat'
 import { reportToCsv } from '@/lib/reportCsv'
 import { ALERTS, AUDIT, CENTER, RESCUE, USERS, area, fakeHash } from '@/mocks/seed'
 import { PUBLIC, distanceKm, loadOsmCandidates } from '../osm'
+import type { ShelterCandidate } from '@/domain/types'
 import type { Services } from '../types'
 
 const delay = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v), ms))
@@ -149,7 +150,79 @@ function buildMockReport(hours: number, allShelters: Shelter[]): Report {
 }
 const SEV_ORDER = { OBSERVACAO: 0, ATENCAO: 1, ALERTA: 2, ALERTA_MAXIMO: 3 } as const
 
+const NO_RESOURCES = { water: false, food: false, medical: false, accessible: false, pets: false }
+const sampleCandidate = (
+  id: string,
+  name: string,
+  address: string,
+  category: string,
+  status: ShelterCandidate['status'] = 'CANDIDATE',
+): ShelterCandidate => ({
+  id,
+  name,
+  address,
+  lat: -23.4439,
+  lng: -46.9178,
+  category,
+  source: 'OSM',
+  removedFromSource: false,
+  status,
+  capacity: 0,
+  occupancy: 0,
+  phone: null,
+  resources: { ...NO_RESOURCES },
+  reviewedAt: null,
+  reviewNote: null,
+})
+const reviewShelters: ShelterCandidate[] = [
+  sampleCandidate('rv-1', 'Escola Municipal Exemplo A', 'Rua das Acácias, 100', 'amenity=school'),
+  sampleCandidate('rv-2', 'Ginásio Poliesportivo Exemplo B', 'Av. Central, 2000', 'leisure=sports_centre'),
+  sampleCandidate('rv-3', 'Centro Comunitário Exemplo C', 'Rua do Parque, 35', 'amenity=community_centre'),
+  sampleCandidate('rv-4', 'Salão Paroquial Exemplo D', 'Praça da Matriz, 1', 'amenity=place_of_worship', 'REJECTED'),
+]
+const findReview = (id: string) => {
+  const s = reviewShelters.find((x) => x.id === id)
+  if (!s) throw new Error('Local não encontrado')
+  return s
+}
+
 export const mockServices: Services = {
+  shelterReview: {
+    list: ({ status, search, limit, offset }) => {
+      const q = search?.trim().toLowerCase()
+      const rows = reviewShelters.filter((s) => s.status === status && (!q || `${s.name} ${s.address}`.toLowerCase().includes(q)))
+      return delay({ items: rows.slice(offset, offset + limit).map((s) => ({ ...s })), total: rows.length })
+    },
+    confirm: (id, input) => {
+      const s = findReview(id)
+      if (input.capacity <= 0) throw new Error('Informe uma capacidade maior que zero.')
+      Object.assign(s, {
+        status: 'CONFIRMED',
+        capacity: input.capacity,
+        phone: input.phone?.trim() || null,
+        resources: { ...input.resources },
+        reviewedAt: new Date().toISOString(),
+        reviewNote: input.note?.trim() || null,
+      })
+      return delay({ ...s })
+    },
+    reject: (id, note) => {
+      const s = findReview(id)
+      Object.assign(s, { status: 'REJECTED', reviewedAt: new Date().toISOString(), reviewNote: note.trim() })
+      return delay({ ...s })
+    },
+    reopen: (id, note) => {
+      const s = findReview(id)
+      if (s.occupancy > 0) throw new Error('O abrigo tem pessoas. Zere a ocupação antes de devolvê-lo a candidato.')
+      Object.assign(s, { status: 'CANDIDATE', reviewedAt: new Date().toISOString(), reviewNote: note?.trim() || null })
+      return delay({ ...s })
+    },
+  },
+  imports: {
+    syncAlerts: () =>
+      delay({ fetched: 6, invalid: 0, inScope: 2, created: 1, updated: 1, reactivated: 0, resolved: 0, expired: 0, notified: 0 }, 400),
+    syncShelters: () => delay({ source: 'OSM', fetched: 120, skipped: 3, created: 4, updated: 0, unchanged: 116, removedFromSource: 0 }, 400),
+  },
   auth: {
     login: (role) =>
       delay({ id: `sess-${role}`, role, name: { AGENTE: 'Renata Lopes', GESTOR: 'Marcos Cavalcante', ADMIN: 'Diego Arruda' }[role] }, 250),

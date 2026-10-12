@@ -343,3 +343,125 @@ describe('serviços HTTP: socorro, resumo, usuários e auditoria', () => {
     expect(created.version).toBe(3)
   })
 })
+
+describe('serviços HTTP: revisão de abrigos', () => {
+  const apiShelter = (over: Record<string, unknown> = {}) => ({
+    id: 's1',
+    name: 'Escola Exemplo',
+    address: 'Rua A, 1',
+    latitude: -23.4,
+    longitude: -46.9,
+    capacity: 0,
+    currentOccupancy: 0,
+    isActive: false,
+    isAccessible: false,
+    isPetFriendly: false,
+    hasWater: false,
+    hasFood: false,
+    hasMedical: false,
+    hasPowerBackup: false,
+    contactPhone: null,
+    status: 'CANDIDATE',
+    source: 'OSM',
+    sourceCategory: 'amenity=school',
+    sourceRemovedAt: null,
+    reviewedAt: null,
+    reviewNote: null,
+    ...over,
+  })
+
+  it('lista por situação, com paginação e busca, e converte o formato da API', async () => {
+    client.get.mockResolvedValue({ data: [apiShelter({ sourceRemovedAt: '2026-10-01T00:00:00Z' })], total: 41 })
+    const page = await services.shelterReview.list({ status: 'CANDIDATE', search: '  escola ', limit: 20, offset: 20 })
+    expect(client.get).toHaveBeenCalledWith('/shelters', { status: 'CANDIDATE', limit: 20, offset: 20, search: 'escola' })
+    expect(page.total).toBe(41)
+    expect(page.items[0]).toMatchObject({
+      id: 's1',
+      name: 'Escola Exemplo',
+      category: 'amenity=school',
+      status: 'CANDIDATE',
+      removedFromSource: true,
+    })
+  })
+
+  it('não manda busca vazia', async () => {
+    client.get.mockResolvedValue({ data: [], total: 0 })
+    await services.shelterReview.list({ status: 'REJECTED', search: '   ', limit: 20, offset: 0 })
+    expect(client.get).toHaveBeenCalledWith('/shelters', { status: 'REJECTED', limit: 20, offset: 0 })
+  })
+
+  it('confirma em dois passos: dados do abrigo e depois a decisão em /status', async () => {
+    client.patch
+      .mockResolvedValueOnce(apiShelter({ capacity: 80 }))
+      .mockResolvedValueOnce(apiShelter({ status: 'CONFIRMED', capacity: 80, isActive: true }))
+    const out = await services.shelterReview.confirm('s 1', {
+      capacity: 80,
+      phone: ' 11 4000-0000 ',
+      note: ' Vistoriado ',
+      resources: { water: true, food: false, medical: true, accessible: true, pets: false },
+    })
+    expect(client.patch).toHaveBeenNthCalledWith(1, '/shelters/s%201', {
+      capacity: 80,
+      hasWater: true,
+      hasFood: false,
+      hasMedical: true,
+      isAccessible: true,
+      isPetFriendly: false,
+      contactPhone: '11 4000-0000',
+    })
+    expect(client.patch).toHaveBeenNthCalledWith(2, '/shelters/s%201/status', { status: 'CONFIRMED', note: 'Vistoriado' })
+    expect(out.status).toBe('CONFIRMED')
+  })
+
+  it('não decide se os dados do abrigo foram recusados', async () => {
+    client.patch.mockRejectedValueOnce(new Error('422'))
+    await expect(
+      services.shelterReview.confirm('s1', {
+        capacity: 10,
+        resources: { water: false, food: false, medical: false, accessible: false, pets: false },
+      }),
+    ).rejects.toThrow('422')
+    expect(client.patch).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejeita com o motivo e devolve a candidato', async () => {
+    client.patch.mockResolvedValue(apiShelter({ status: 'REJECTED' }))
+    await services.shelterReview.reject('s1', ' Local particular ')
+    expect(client.patch).toHaveBeenLastCalledWith('/shelters/s1/status', { status: 'REJECTED', note: 'Local particular' })
+    await services.shelterReview.reopen('s1')
+    expect(client.patch).toHaveBeenLastCalledWith('/shelters/s1/status', { status: 'CANDIDATE' })
+  })
+})
+
+describe('serviços HTTP: importações do administrador', () => {
+  it('importa os avisos do INMET e devolve o resumo da API', async () => {
+    const result = { fetched: 5, invalid: 0, inScope: 2, created: 1, updated: 1, reactivated: 0, resolved: 0, expired: 0, notified: 1 }
+    client.post.mockResolvedValue(result)
+    await expect(services.imports.syncAlerts()).resolves.toEqual(result)
+    expect(client.post).toHaveBeenCalledWith('/admin/alerts/sync-inmet')
+  })
+
+  it('importa os candidatos a abrigo do OSM', async () => {
+    client.post.mockResolvedValue({
+      runId: 'r1',
+      queryHash: 'x',
+      source: 'OSM',
+      fetched: 10,
+      skipped: 1,
+      created: 4,
+      updated: 0,
+      unchanged: 6,
+      removedFromSource: 0,
+    })
+    await expect(services.imports.syncShelters()).resolves.toEqual({
+      source: 'OSM',
+      fetched: 10,
+      skipped: 1,
+      created: 4,
+      updated: 0,
+      unchanged: 6,
+      removedFromSource: 0,
+    })
+    expect(client.post).toHaveBeenCalledWith('/admin/shelters/sync/OSM')
+  })
+})

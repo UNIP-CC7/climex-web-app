@@ -12,6 +12,8 @@ import type {
   Role,
   Severity,
   Shelter,
+  ShelterCandidate,
+  ShelterConfirmInput,
   ShelterKind,
 } from '@/domain/types'
 import { RISK_BANDS } from '@/domain/types'
@@ -31,6 +33,8 @@ import type {
   ApiRescueStatusPatch,
   ApiRole,
   ApiShelter,
+  ApiReviewShelter,
+  ApiShelterStatus,
   ApiShelterPatch,
   ApiUser,
 } from './dto'
@@ -299,4 +303,40 @@ export function reportFromApi(r: ApiReport): Report {
       rate: s.occupancyRate,
     })),
   }
+}
+
+/* ---------- revisão de abrigos ---------- */
+export function candidateFromApi(s: ApiReviewShelter): ShelterCandidate {
+  return {
+    id: s.id,
+    name: s.name,
+    address: s.address,
+    lat: s.latitude,
+    lng: s.longitude,
+    category: s.sourceCategory,
+    source: s.source,
+    removedFromSource: s.sourceRemovedAt != null,
+    status: s.status satisfies ApiShelterStatus,
+    capacity: s.capacity,
+    occupancy: s.currentOccupancy,
+    phone: s.contactPhone,
+    resources: { water: s.hasWater, food: s.hasFood, medical: s.hasMedical, accessible: s.isAccessible, pets: s.isPetFriendly },
+    reviewedAt: s.reviewedAt,
+    reviewNote: s.reviewNote,
+  }
+}
+
+/** Dados da confirmação como o PATCH /shelters/:id espera. A confirmação em si é um segundo passo, em /status. */
+export function confirmToApiPatch(input: ShelterConfirmInput): ApiShelterPatch {
+  const out: ApiShelterPatch = {
+    capacity: input.capacity,
+    hasWater: input.resources.water,
+    hasFood: input.resources.food,
+    hasMedical: input.resources.medical,
+    isAccessible: input.resources.accessible,
+    isPetFriendly: input.resources.pets,
+  }
+  const phone = input.phone?.trim()
+  if (phone) out.contactPhone = phone
+  return out
 }
