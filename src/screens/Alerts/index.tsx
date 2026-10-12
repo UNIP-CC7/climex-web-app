@@ -79,7 +79,7 @@ export default function AlertsScreen() {
             </Field>
             <Field>
               Bairro
-              <input name="neighborhood" required placeholder="Ex.: Fazendinha" />
+              <input name="neighborhood" required placeholder="Ex.: Jardim Mirante" />
             </Field>
             <Field>
               Duração (horas)

@@ -1,3 +1,4 @@
+import { occupancyText } from '@/lib/shelterLabel'
 import { useEffect, useMemo, type ReactNode } from 'react'
 import L from 'leaflet'
 import { Circle, CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker, useMap } from 'react-leaflet'
@@ -107,7 +108,7 @@ export function ShelterLayer({ shelters, candidate = false }: { shelters: Shelte
             {[s.street, s.neighborhood].filter(Boolean).join(', ')}
             <br />
             <span style={{ color: theme.colors.muted }}>
-              {s.status === 'ATIVO' ? `Ocupação simulada: ${s.occupancy} / ${s.capacity}` : 'Candidato, ainda não validado pela Defesa Civil'}
+              {s.status === 'ATIVO' ? occupancyText(s) : 'Candidato, ainda não validado pela Defesa Civil'}
             </span>
           </Popup>
         </Marker>
