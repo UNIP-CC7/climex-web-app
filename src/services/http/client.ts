@@ -26,12 +26,17 @@ interface RequestOptions {
   auth?: boolean
   /** Token explícito, sem passar pelo armazenamento nem pela renovação automática. Usado só no logout. */
   token?: string
+  /** Devolve o corpo como texto, não como JSON (o CSV do relatório). */
+  text?: boolean
 }
 
 export interface HttpClient {
   get<T>(path: string, query?: Query): Promise<T>
+  /** GET que devolve o corpo como texto, com a mesma sessão e renovação (o CSV do relatório). */
+  text(path: string, query?: Query): Promise<string>
   post<T>(path: string, body?: unknown, opts?: Pick<RequestOptions, 'auth'>): Promise<T>
   patch<T>(path: string, body?: unknown): Promise<T>
+  put<T>(path: string, body?: unknown): Promise<T>
   /** Percorre as páginas de uma listagem paginada (limit 100) e junta tudo. */
   all<T>(path: string, query?: Query, maxPages?: number): Promise<T[]>
   /**
@@ -43,7 +48,7 @@ export interface HttpClient {
 }
 
 export interface ClientOptions {
-  /** Vazio usa o mesmo endereço do painel (o proxy do Vite leva /v1 até a API). */
+  /** Origem da API. Vazio usa o mesmo endereço do painel (o proxy do Vite leva /v1 até a API); sem informar, vale VITE_API_BASE_URL. */
   baseUrl?: string
   fetchImpl?: typeof fetch
   tokens?: TokenStore
@@ -95,8 +100,29 @@ type RenewResult =
   | 'unavailable' // rede, timeout ou erro 5xx: não dá para saber, a sessão fica como está
   | 'stale' // o usuário saiu ou entrou de novo enquanto a renovação corria
 
+/**
+ * Origem da API. Vazio significa o mesmo endereço do painel. Com valor, tem que ser uma origem http(s) pura
+ * (a barra final e o /v1 são aceitos e saem, porque o cliente já acrescenta o prefixo). Como os tokens da sessão
+ * seguem para esse endereço, um valor torto falha alto no lugar de mandar credenciais para onde não deveria.
+ */
+export function normalizeBaseUrl(raw: string | undefined): string {
+  const value = (raw ?? '').trim()
+  if (!value) return ''
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error(`Endereço da API inválido: "${value}". Use algo como https://api.exemplo.com.br`)
+  }
+  const path = url.pathname.replace(/\/+$/, '')
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || (path !== '' && path !== '/v1')) {
+    throw new Error(`Endereço da API inválido: "${value}". Informe só a origem, como https://api.exemplo.com.br`)
+  }
+  return url.origin
+}
+
 export function createHttpClient(opts: ClientOptions = {}): HttpClient {
-  const baseUrl = (opts.baseUrl ?? '').replace(/\/$/, '')
+  const baseUrl = normalizeBaseUrl(opts.baseUrl ?? import.meta.env.VITE_API_BASE_URL)
   const doFetch = opts.fetchImpl ?? ((...a: Parameters<typeof fetch>) => fetch(...a))
   const tokens = opts.tokens ?? browserTokens
   const expired = opts.onSessionExpired ?? notifySessionExpired
@@ -190,13 +216,16 @@ export function createHttpClient(opts: ClientOptions = {}): HttpClient {
     }
     if (!res.ok) throw await readProblem(res)
     if (res.status === 204) return undefined as T
+    if (o.text) return (await res.text()) as T
     return readJson<T>(res)
   }
 
   return {
     get: (path, query) => request('GET', path, { query }),
+    text: (path, query) => request('GET', path, { query, text: true }),
     post: (path, body, o) => request('POST', path, { body, auth: o?.auth }),
     patch: (path, body) => request('PATCH', path, { body }),
+    put: (path, body) => request('PUT', path, { body }),
     async all<T>(path: string, query: Query = {}, maxPages = 10) {
       const out: T[] = []
       for (let page = 1; page <= maxPages; page++) {

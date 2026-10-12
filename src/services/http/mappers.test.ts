@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { Alert, RescueRequest, Shelter } from '@/domain/types'
 import type { ApiAlert, ApiRescue, ApiShelter } from './dto'
 import {
   alertDescription,
   alertFromApi,
   auditFromApi,
-  buildSummary,
-  polygonFromGeoJson,
+  polygonsFromGeoJson,
   rescueFromApi,
   rescueStatusToApi,
   roleFromApi,
@@ -73,6 +71,7 @@ const apiRescue = (over: Partial<ApiRescue> = {}): ApiRescue => ({
   nrScore: 61,
   isSos: false,
   description: '  Casa alagada ',
+  resolvedAt: null,
   latitude: -23.4,
   longitude: -46.9,
   victimCount: 3,
@@ -112,33 +111,69 @@ describe('perfis e telefone', () => {
 describe('alertas', () => {
   it('converte o polígono [lng, lat] para [lat, lng]', () => {
     expect(
-      polygonFromGeoJson({
+      polygonsFromGeoJson({
         type: 'Polygon',
         coordinates: [
           [
             [-46.9, -23.4],
+            [-46.8, -23.4],
             [-46.8, -23.5],
+            [-46.9, -23.4],
           ],
         ],
       }),
     ).toEqual([
-      [-23.4, -46.9],
-      [-23.5, -46.8],
+      [
+        [-23.4, -46.9],
+        [-23.4, -46.8],
+        [-23.5, -46.8],
+        [-23.4, -46.9],
+      ],
     ])
-    expect(polygonFromGeoJson(apiAlert().polygon)?.[0]).toEqual([-23.4, -46.9])
+    expect(polygonsFromGeoJson(apiAlert().polygon)?.[0][0]).toEqual([-23.4, -46.9])
+  })
+  it('anel degenerado (1 ou 2 pontos, aberto demais, todos iguais) não vale e cai no círculo de reserva', () => {
+    const ring = (...pts: number[][]) => ({ type: 'Polygon', coordinates: [pts] })
+    expect(polygonsFromGeoJson(ring([-46.9, -23.4]))).toBeNull()
+    expect(polygonsFromGeoJson(ring([-46.9, -23.4], [-46.8, -23.5]))).toBeNull()
+    expect(polygonsFromGeoJson(ring([-46.9, -23.4], [-46.8, -23.5], [-46.9, -23.4]))).toBeNull() // só 2 vértices diferentes
+    expect(polygonsFromGeoJson(ring([-46.9, -23.4], [-46.9, -23.4], [-46.9, -23.4], [-46.9, -23.4]))).toBeNull()
+    const a = alertFromApi(apiAlert({ polygon: ring([-46.9, -23.4]) }))
+    expect(a.polygons[0]).toHaveLength(24)
+  })
+  it('MultiPolygon: um anel por área, ignora buracos e descarta só o anel malformado', () => {
+    const quadrado = (x: number) => [
+      [x, -23.4],
+      [x + 0.1, -23.4],
+      [x + 0.1, -23.5],
+      [x, -23.4],
+    ]
+    const buraco = [
+      [-46.85, -23.42],
+      [-46.84, -23.42],
+      [-46.84, -23.43],
+      [-46.85, -23.42],
+    ]
+    const r = polygonsFromGeoJson({ type: 'MultiPolygon', coordinates: [[quadrado(-46.9), buraco], [quadrado(-46.5)]] })
+    expect(r).toHaveLength(2)
+    expect(r?.[0]).toHaveLength(4) // o buraco não vira anel
+    expect(r?.[1][0]).toEqual([-23.4, -46.5])
+    const meio = polygonsFromGeoJson({ type: 'MultiPolygon', coordinates: [[[['x', 1]]], [quadrado(-46.5)]] })
+    expect(meio).toHaveLength(1)
+    expect(polygonsFromGeoJson({ type: 'MultiPolygon', coordinates: [] })).toBeNull()
   })
   it('rejeita tipo de geometria inesperado e coordenadas malformadas', () => {
-    expect(polygonFromGeoJson({ type: 'Point', coordinates: [-46.9, -23.4] })).toBeNull()
-    expect(polygonFromGeoJson({ coordinates: [[[-46.9, -23.4]]] })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: [[[-46.9]]] })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: [[['x', -23.4]]] })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: [[null]] })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: ['x'] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Point', coordinates: [-46.9, -23.4] })).toBeNull()
+    expect(polygonsFromGeoJson({ coordinates: [[[-46.9, -23.4]]] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: [[[-46.9]]] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: [[['x', -23.4]]] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: [[null]] })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: ['x'] })).toBeNull()
   })
   it('devolve null quando não há polígono utilizável', () => {
-    expect(polygonFromGeoJson(null)).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon' })).toBeNull()
-    expect(polygonFromGeoJson({ type: 'Polygon', coordinates: [[]] })).toBeNull()
+    expect(polygonsFromGeoJson(null)).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon' })).toBeNull()
+    expect(polygonsFromGeoJson({ type: 'Polygon', coordinates: [[]] })).toBeNull()
   })
   it('mapeia campos, bairro da descrição e situação ativa', () => {
     const a = alertFromApi(apiAlert())
@@ -164,9 +199,10 @@ describe('alertas', () => {
   })
   it('sem polígono desenha um círculo ao redor do centro', () => {
     const a = alertFromApi(apiAlert({ polygon: null }))
-    expect(a.polygon).toHaveLength(24)
+    expect(a.polygons).toHaveLength(1)
+    expect(a.polygons[0]).toHaveLength(24)
     const sem = alertFromApi(apiAlert({ polygon: null, radiusMeters: null }))
-    expect(sem.polygon).toHaveLength(24)
+    expect(sem.polygons[0]).toHaveLength(24)
   })
   it('o bairro volta inteiro com ou sem ponto final e com espaços depois', () => {
     const n = (description: string) => alertFromApi(apiAlert({ description })).neighborhood
@@ -243,6 +279,10 @@ describe('socorro', () => {
     expect(rescueFromApi(apiRescue({ description: null })).address).toBe('Sem descrição')
     expect(rescueFromApi(apiRescue()).inAlertArea).toBe(false)
   })
+  it('traz a data de conclusão que a API manda e deixa nula quando não há', () => {
+    expect(rescueFromApi(apiRescue({ status: 'RESOLVED', resolvedAt: '2026-10-08T12:30:00.000Z' })).resolvedAt).toBe('2026-10-08T12:30:00.000Z')
+    expect(rescueFromApi(apiRescue()).resolvedAt).toBeNull()
+  })
   it('faixa desconhecida ou pontuação fora de 0 a 100 não contamina o painel', () => {
     expect(rescueFromApi(apiRescue({ riskLevel: 'XPTO' as never, nrScore: 85 })).risk).toEqual({ score: 85, band: 'CRITICO' })
     expect(rescueFromApi(apiRescue({ nrScore: 250 })).risk.score).toBe(100)
@@ -294,46 +334,5 @@ describe('auditoria', () => {
       previousHash: null,
     })
     expect(n).toMatchObject({ author: 'Sistema', role: null, entity: 'T', status: 0, ip: '-', prevHash: '' })
-  })
-})
-
-describe('resumo do painel', () => {
-  const alerts: Alert[] = [
-    { ...alertFromApi(apiAlert({ id: 'a1', level: 'ATENCAO' })) },
-    { ...alertFromApi(apiAlert({ id: 'a2', level: 'ALERTA_MAXIMO' })) },
-    { ...alertFromApi(apiAlert({ id: 'a3', status: 'RESOLVED' })) },
-  ]
-  const shelters: Shelter[] = [
-    shelterFromApi(apiShelter({ id: 's1', capacity: 100, currentOccupancy: 40 })),
-    shelterFromApi(apiShelter({ id: 's2', capacity: 50, currentOccupancy: 50 })),
-    shelterFromApi(apiShelter({ id: 's3', isActive: false })),
-  ]
-  const rescue: RescueRequest[] = [
-    rescueFromApi(apiRescue({ id: 'r1', riskLevel: 'CRITICO', nrScore: 90 })),
-    rescueFromApi(apiRescue({ id: 'r2', riskLevel: 'BAIXO', nrScore: 10 })),
-    rescueFromApi(apiRescue({ id: 'r3', status: 'ASSIGNED', assignedAgentId: 'ag1' })),
-    rescueFromApi(apiRescue({ id: 'r4', status: 'IN_PROGRESS', assignedAgentId: 'ag1' })),
-    rescueFromApi(apiRescue({ id: 'r5', status: 'RESOLVED' })),
-  ]
-  it('conta alertas, solicitações por faixa, vagas e agentes', () => {
-    const s = buildSummary(alerts, shelters, rescue, new Date('2026-10-07T12:00:00Z'))
-    expect(s.activeAlerts).toBe(2)
-    expect(s.maxAlert?.severity).toBe('ALERTA_MAXIMO')
-    expect(s.openRescue).toBe(2)
-    expect(s.openByRisk).toEqual({ CRITICO: 1, ALTO: 0, MEDIO: 0, BAIXO: 1 })
-    expect(s).toMatchObject({
-      shelterTotal: 2,
-      sheltersWithSpots: 1,
-      spotsFree: 60,
-      spotsTotal: 150,
-      agentsInField: null,
-      agentsAttending: 1,
-      simulated: false,
-    })
-    expect(s.updatedAt).toBe('2026-10-07T12:00:00.000Z')
-  })
-  it('não quebra sem dados', () => {
-    const s = buildSummary([], [], [])
-    expect(s).toMatchObject({ activeAlerts: 0, maxAlert: null, openRescue: 0, spotsFree: 0, spotsTotal: 0 })
   })
 })

@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import L from 'leaflet'
-import { CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker } from 'react-leaflet'
+import { Circle, CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker, useMap } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import {
   RESCUE_TYPE_LABEL,
@@ -15,6 +15,7 @@ import {
 import { theme } from '@/theme'
 import { CENTER } from '@/mocks/seed'
 import { clock } from '@/lib/format'
+import { alertHeatCells, type HeatCell } from '@/lib/heat'
 
 export const SEVERITY_COLOR: Record<Severity, string> = {
   OBSERVACAO: theme.colors.severity.obs,
@@ -34,6 +35,12 @@ const shelterIcon = L.divIcon({
   className: '',
   html: `<div style="width:26px;height:26px;border-radius:8px;background:${theme.colors.primaryLighten};color:${theme.colors.primary};display:grid;place-items:center;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.4)">A</div>`,
   iconSize: [26, 26],
+})
+
+const candidateIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:22px;height:22px;border-radius:8px;border:2px dashed ${theme.colors.primaryLighten};background:rgba(8,26,56,.85);color:${theme.colors.primaryLighten};display:grid;place-items:center;font-weight:700;font-size:12px">?</div>`,
+  iconSize: [22, 22],
 })
 
 export function BaseMap({
@@ -65,7 +72,7 @@ export function AlertLayer({ alerts }: { alerts: Alert[] }) {
         .map((a) => (
           <Polygon
             key={a.id}
-            positions={a.polygon}
+            positions={a.polygons.map((ring) => [ring])} // um polígono por anel (o Leaflet leria anéis soltos como buracos)
             pathOptions={{ color: SEVERITY_COLOR[a.severity], weight: 2, fillColor: SEVERITY_COLOR[a.severity], fillOpacity: 0.22 }}
           >
             <Popup>
@@ -81,11 +88,17 @@ export function AlertLayer({ alerts }: { alerts: Alert[] }) {
   )
 }
 
-export function ShelterLayer({ shelters }: { shelters: Shelter[] }) {
+/** `candidate` desenha os marcadores como locais ainda não validados, para ninguém confundir com abrigo cadastrado. */
+export function ShelterLayer({ shelters, candidate = false }: { shelters: Shelter[]; candidate?: boolean }) {
   return (
     <MarkerClusterGroup chunkedLoading maxClusterRadius={50} showCoverageOnHover={false}>
       {shelters.map((s) => (
-        <Marker key={s.id} position={[s.lat, s.lng]} icon={shelterIcon}>
+        <Marker
+          key={s.id}
+          position={[s.lat, s.lng]}
+          icon={candidate ? candidateIcon : shelterIcon}
+          title={candidate ? `${s.name} (candidato, não oficial)` : `${s.name} (abrigo)`}
+        >
           <Popup>
             <b>{s.name}</b>
             <br />
@@ -138,19 +151,42 @@ export function RescueLayer({ items }: { items: RescueRequest[] }) {
   )
 }
 
-/** Concentração de ocorrências: círculos translúcidos somados por bairro. */
-export function HeatLayer({ items }: { items: RescueRequest[] }) {
+function HeatCircles({ cells, color }: { cells: HeatCell[]; color: string }) {
   return (
     <>
-      {items.map((r) => (
-        <CircleMarker
-          key={r.id}
-          center={[r.lat, r.lng]}
-          radius={26}
-          pathOptions={{ stroke: false, fillColor: theme.colors.danger, fillOpacity: 0.16 }}
+      {cells.map((c) => (
+        <Circle
+          key={`${c.lat}:${c.lng}`}
+          center={[c.lat, c.lng]}
+          radius={380}
+          pathOptions={{ stroke: false, fillColor: color, fillOpacity: 0.12 + 0.5 * c.intensity }}
           interactive={false}
         />
       ))}
     </>
   )
+}
+
+/** Concentração de ocorrências: as células vêm prontas (da API, ou da grade local no modo simulado). */
+export function HeatLayer({ cells }: { cells: HeatCell[] }) {
+  return <HeatCircles cells={cells} color={theme.colors.danger} />
+}
+
+/** Densidade dos alertas ativos: mais quente onde há mais áreas e de maior gravidade. */
+export function AlertHeatLayer({ alerts }: { alerts: Alert[] }) {
+  const cells = useMemo(() => alertHeatCells(alerts), [alerts])
+  return <HeatCircles cells={cells} color={SEVERITY_COLOR.ALERTA_MAXIMO} />
+}
+
+/** Reenquadra o mapa para o círculo caber inteiro, útil quando o raio vai de 500 m a 50 km. */
+export function FitCircle({ center, radiusMeters }: { center: LatLng; radiusMeters: number }) {
+  const map = useMap()
+  useEffect(() => {
+    // espera o controle parar de mexer: reenquadrar a cada passo do arraste engasga o mapa
+    const t = setTimeout(() => {
+      map.fitBounds(L.circle(center, { radius: radiusMeters }).getBounds(), { padding: [16, 16], animate: false })
+    }, 250)
+    return () => clearTimeout(t)
+  }, [map, center, radiusMeters])
+  return null
 }

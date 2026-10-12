@@ -2,24 +2,31 @@ import type {
   Alert,
   AuditEntry,
   DashboardSummary,
+  Report,
   LatLng,
   RescueRequest,
   RescueStatus,
   Risk,
   RiskBand,
+  RiskConfigVersion,
   Role,
   Severity,
   Shelter,
   ShelterKind,
 } from '@/domain/types'
 import { RISK_BANDS } from '@/domain/types'
+import type { HeatCell } from '@/lib/heat'
 import { makeRisk } from '@/lib/risk'
 import type { SessionUser } from '../types'
 import type {
   ApiAlert,
   ApiAlertLevel,
   ApiAuditEntry,
+  ApiDashboardSummary,
+  ApiHeatmap,
+  ApiReport,
   ApiRescue,
+  ApiRiskConfigVersion,
   ApiRescueStatus,
   ApiRescueStatusPatch,
   ApiRole,
@@ -69,20 +76,30 @@ function neighborhoodFrom(description: string, fallback: string): string {
   )
 }
 
-/** GeoJSON [lng, lat] para o [lat, lng] do Leaflet. Usa o anel externo do primeiro polígono. */
-export function polygonFromGeoJson(geo: unknown): LatLng[] | null {
-  const g = geo as { type?: string; coordinates?: unknown } | null
-  if (!g || !Array.isArray(g.coordinates)) return null
-  if (g.type !== 'Polygon' && g.type !== 'MultiPolygon') return null
-  const ring = (g.type === 'MultiPolygon' ? (g.coordinates as unknown[][][][])[0]?.[0] : (g.coordinates as unknown[][][])[0]) as unknown[] | undefined
+function ringFromGeoJson(ring: unknown): LatLng[] | null {
   if (!Array.isArray(ring) || !ring.length) return null
   const points: LatLng[] = []
   for (const p of ring) {
-    // um ponto malformado invalida o polígono todo, e aí vale o círculo de reserva
+    // um ponto malformado invalida o anel
     if (!Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) return null
     points.push([p[1] as number, p[0] as number])
   }
+  // um anel de verdade tem 4 posições (a última repete a primeira) e ao menos 3 vértices diferentes
+  if (points.length < 4 || new Set(points.map((q) => q.join(','))).size < 3) return null
   return points
+}
+
+/**
+ * GeoJSON [lng, lat] para o [lat, lng] do Leaflet, com o anel externo de cada polígono. Buracos são ignorados.
+ * Um anel malformado é descartado. Se nenhum sobrar, devolve null e vale o círculo de reserva.
+ */
+export function polygonsFromGeoJson(geo: unknown): LatLng[][] | null {
+  const g = geo as { type?: string; coordinates?: unknown } | null
+  if (!g || !Array.isArray(g.coordinates)) return null
+  if (g.type !== 'Polygon' && g.type !== 'MultiPolygon') return null
+  const polygons: unknown[] = g.type === 'MultiPolygon' ? g.coordinates : [g.coordinates]
+  const rings = polygons.map((p) => ringFromGeoJson(Array.isArray(p) ? p[0] : null)).filter((r): r is LatLng[] => r !== null)
+  return rings.length ? rings : null
 }
 
 /** Círculo aproximado, só para o caso de a API não devolver o polígono. */
@@ -103,7 +120,7 @@ export function alertFromApi(a: ApiAlert): Alert {
     severity: a.level as Severity,
     city: a.city,
     neighborhood: neighborhoodFrom(a.description, a.city),
-    polygon: polygonFromGeoJson(a.polygon) ?? circle(a.latitude, a.longitude, a.radiusMeters ?? 1000),
+    polygons: polygonsFromGeoJson(a.polygon) ?? [circle(a.latitude, a.longitude, a.radiusMeters ?? 1000)],
     issuedAt: a.createdAt,
     expiresAt: a.expiresAt,
     active: a.status === 'ACTIVE',
@@ -189,6 +206,7 @@ export function rescueFromApi(r: ApiRescue): RescueRequest {
     requesterName: null,
     distanceKm: null,
     openedAt: r.createdAt,
+    resolvedAt: r.resolvedAt ?? null,
     assignedTo: r.assignedAgentId,
     outcome: r.outcomeNote,
   }
@@ -212,6 +230,11 @@ export function rescueStatusToApi(status: RescueStatus, outcome?: string): ApiRe
   }
 }
 
+/* ---------- pesos do Nível de Risco ---------- */
+export function riskVersionFromApi(v: ApiRiskConfigVersion): RiskConfigVersion {
+  return { version: v.version, config: v.config, isActive: v.isActive, reason: v.reason, createdAt: v.createdAt }
+}
+
 /* ---------- auditoria ---------- */
 export function auditFromApi(e: ApiAuditEntry): AuditEntry {
   return {
@@ -231,26 +254,49 @@ export function auditFromApi(e: ApiAuditEntry): AuditEntry {
 /* ---------- resumo do painel ---------- */
 export const SEV_ORDER: Record<Severity, number> = { OBSERVACAO: 0, ATENCAO: 1, ALERTA: 2, ALERTA_MAXIMO: 3 }
 
-/** A API não tem rota de resumo: o painel calcula a partir das três listas. */
-export function buildSummary(alerts: Alert[], shelters: Shelter[], rescue: RescueRequest[], now = new Date()): DashboardSummary {
-  const active = alerts.filter((a) => a.active)
-  const open = rescue.filter((r) => r.status === 'ABERTA')
-  const openByRisk: Record<RiskBand, number> = { CRITICO: 0, ALTO: 0, MEDIO: 0, BAIXO: 0 }
-  open.forEach((r) => openByRisk[r.risk.band]++)
-  const live = shelters.filter((s) => s.status === 'ATIVO')
-  const free = (s: Shelter) => Math.max(0, s.capacity - s.occupancy)
+const RISK_ZERO: Record<RiskBand, number> = { CRITICO: 0, ALTO: 0, MEDIO: 0, BAIXO: 0 }
+const riskCounts = (c: Partial<Record<RiskBand, number>> | undefined): Record<RiskBand, number> => ({ ...RISK_ZERO, ...c })
+
+/** GET /v1/dashboard/summary. `agentsActive` é a contagem de agentes ativos, a mesma ideia do modo simulado. */
+export function summaryFromApi(s: ApiDashboardSummary): DashboardSummary {
   return {
-    activeAlerts: active.length,
-    maxAlert: [...active].sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])[0] ?? null,
-    openRescue: open.length,
-    openByRisk,
-    sheltersWithSpots: live.filter((s) => free(s) > 0).length,
-    shelterTotal: live.length,
-    spotsFree: live.reduce((n, s) => n + free(s), 0),
-    spotsTotal: live.reduce((n, s) => n + s.capacity, 0),
-    agentsInField: null, // a API não informa quais agentes estão em campo
-    agentsAttending: new Set(rescue.filter((r) => r.status === 'EM_ATENDIMENTO' && r.assignedTo).map((r) => r.assignedTo)).size,
+    activeAlerts: s.activeAlerts,
+    maxAlert: s.maxAlert ? { id: s.maxAlert.id, title: s.maxAlert.title, severity: s.maxAlert.level, place: s.maxAlert.city } : null,
+    openRescue: s.openRescue,
+    openByRisk: riskCounts(s.openByRisk),
+    sheltersWithSpots: s.sheltersWithSpots,
+    shelterTotal: s.sheltersActive,
+    spotsFree: s.spotsFree,
+    spotsTotal: s.spotsTotal,
+    agentsInField: s.agentsActive,
+    agentsAttending: s.agentsAttending,
     simulated: false,
-    updatedAt: now.toISOString(),
+    updatedAt: s.updatedAt,
+  }
+}
+
+/** GET /v1/dashboard/heatmap: a intensidade de cada célula é a contagem dela sobre a maior contagem. */
+export function heatFromApi(h: ApiHeatmap): HeatCell[] {
+  let max = 0
+  for (const c of h.cells) if (c.count > max) max = c.count
+  return h.cells.map((c) => ({ lat: c.latitude, lng: c.longitude, count: c.count, score: c.count, intensity: max > 0 ? c.count / max : 0 }))
+}
+
+/** GET /v1/dashboard/report */
+export function reportFromApi(r: ApiReport): Report {
+  return {
+    periodHours: r.periodHours,
+    from: r.from,
+    to: r.to,
+    rescue: { ...r.rescue, byRisk: riskCounts(r.rescue.byRisk) },
+    alerts: r.alerts,
+    shelters: r.shelters.map((s) => ({
+      id: s.id,
+      name: s.name,
+      capacity: s.capacity,
+      occupancy: s.currentOccupancy,
+      available: s.availableSlots,
+      rate: s.occupancyRate,
+    })),
   }
 }

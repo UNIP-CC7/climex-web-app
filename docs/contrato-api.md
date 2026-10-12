@@ -27,8 +27,10 @@ Todas sob o prefixo `/v1`. Papéis: `CIDADAO`, `AGENTE`, `GESTOR`, `ADMINISTRADO
 | `users.setRole` | `PATCH /v1/admin/users/:id/role` (`role` e `reason` com 5 a 500 caracteres) | administrador | Existe. |
 | `users.list`, `users.setActive` | não existe | | **Falta** listar usuários e ativar ou desativar. |
 | `audit.list` | `GET /v1/audit` e `GET /v1/audit/verify` (integridade da cadeia) | gestor e administrador (a verificação só administrador) | Existe, com hash encadeado de verdade. O painel hoje mostra um hash ilustrativo. |
-| `dashboard.summary` | não existe como rota | | **Falta.** Dá para montar no cliente a partir de alertas, socorro e abrigos. `GET /v1/map/overview` traz alertas ativos e abrigos. |
-| relatórios | não existe | | **Falta.** Hoje calculado no navegador. |
+| `dashboard.summary` | `GET /v1/dashboard/summary` | autenticado | Existe. `agentsActive` conta agentes ativos (não é presença em campo) e `agentsAttending` os que têm um caso aceito. |
+| `dashboard.heatmap` | `GET /v1/dashboard/heatmap?hours&cellDegrees` | autenticado | Existe. Células de grade com a contagem de solicitações; o painel calcula a intensidade pela maior contagem. |
+| `dashboard.report` | `GET /v1/dashboard/report?hours` | gestor e administrador | Existe. O painel oferece 24 horas, 7 dias e 30 dias. |
+| `dashboard.reportCsv` | `GET /v1/dashboard/report/csv?hours` | gestor e administrador | Existe. O painel baixa o texto com o token da sessão. |
 | (dispositivos, só o app) | `PUT` e `DELETE /v1/devices` | autenticado | Existe. Registra o token de push do celular. |
 | (rota de fuga, só o app) | `GET /v1/map/route`, `GET /v1/map/pois` | leitura opcional | Existe. O painel não usa. |
 
@@ -68,5 +70,5 @@ Decisões a tomar na hora de ligar:
 1. Subir a API (`docker compose up --build`, na `climex-api`) e rodar `npm run db:seed`.
 2. Gerar os tipos do painel a partir do `openapi.json` da API, no lugar dos tipos manuais.
 3. Criar `src/services/http/` com uma implementação de cada interface de `src/services/types.ts` (cliente `fetch` com `VITE_API_URL`, renovação em `401`, cabeçalhos e erros no formato da API) e escolher a implementação em `src/services/index.ts` por `VITE_USE_MOCKS`.
-4. Manter os mocks só para o que a API ainda não tem: listar e desativar usuários, resumo do painel e relatórios, cadastro de abrigo e saída de abrigo.
+4. Manter os mocks só para o que a API ainda não tem: listar e desativar usuários, cadastro de abrigo e saída de abrigo.
 5. Liberar a origem do painel em `CORS_ALLOWED_ORIGINS` na API de produção.

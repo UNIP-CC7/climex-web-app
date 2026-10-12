@@ -56,6 +56,7 @@ O Vite lê o `.env` ao iniciar. Depois de mudar um valor, reinicie o `npm run de
 |---|---|---|
 | `VITE_USE_MOCKS` | `true` | Usa os serviços simulados de `src/services/mock`. Qualquer valor diferente de `false` mantém os mocks. |
 | `VITE_API_URL` | `http://localhost:3000` | Endereço da climex-api para o proxy do `npm run dev`. Só vale com `VITE_USE_MOCKS=false`. |
+| `VITE_API_BASE_URL` | vazio | Origem pública da climex-api para o painel publicado (build de produção), sem barra no fim e sem `/v1`. Só vale com `VITE_USE_MOCKS=false`. Vazio mantém o comportamento de hoje: o painel chama o próprio endereço, o que serve ao `npm run dev` ou a um servidor que encaminhe `/v1` para a API. Um valor que não seja só uma origem http(s) derruba o painel com uma mensagem clara. |
 
 ## Rodando contra a API real
 
@@ -65,14 +66,16 @@ Com `VITE_USE_MOCKS=false` o painel fala com a climex-api em vez de usar dados s
 2. No painel, crie o `.env` com `VITE_USE_MOCKS=false` (e `VITE_API_URL` se a API não estiver em `http://localhost:3000`).
 3. `npm run dev` e entre com um telefone do seed da API (formato `(11) 99000-0003`; a senha de demonstração está no `prisma/seed.ts` da API).
 
-O painel chama `/v1/...` no próprio endereço e o Vite repassa para `VITE_API_URL`. Assim o navegador só enxerga uma origem e o CORS não entra no caminho. Isso importa porque a API hoje só libera `GET`, `HEAD` e `POST` no CORS, o que barraria todo `PATCH` (encerrar alerta, editar abrigo, mudar status de socorro). Esse proxy existe só no `npm run dev`: sem uma API publicada, não há configuração de produção para o modo HTTP.
+O painel chama `/v1/...` no próprio endereço e o Vite repassa para `VITE_API_URL`. Assim o navegador só enxerga uma origem e o CORS não entra no caminho. Isso importa porque a API hoje só libera `GET`, `HEAD` e `POST` no CORS, o que barraria todo `PATCH` (encerrar alerta, editar abrigo, mudar status de socorro). Esse proxy existe só no `npm run dev`.
+
+Para o painel publicado, defina `VITE_API_BASE_URL` com a origem pública da API no momento do build (na Vercel, em Environment Variables). Nesse caminho o navegador fala direto com a API, então ela precisa liberar a origem do painel em `CORS_ALLOWED_ORIGINS`, os métodos `GET`, `POST` e `PATCH` e os cabeçalhos `Authorization`, `Content-Type` e `X-Request-Id` no preflight. O valor fica no JavaScript público e recebe os tokens da sessão, então aponte só para a API de verdade. Hoje o `.env.example` da API só lista `http://localhost:5173`, e sem a API publicada (card E-01) esse modo não tem para onde apontar.
 
 O que muda em relação ao modo simulado:
 
 - **Perfis:** o painel bloqueia o login de cidadão (a API aceita, mas ele usa só o aplicativo).
 - **Risco:** a pontuação (`nrScore`, 0 a 100) e a faixa vêm da API.
-- **Painel (resumo):** a API não tem rota de resumo, então os números são calculados no navegador a partir das listas de alertas, abrigos e socorro. Agentes em campo aparece como `-`.
-- **Abrigos:** só os cadastrados na API (os ativos). A camada de candidatos do OpenStreetMap não entra neste modo.
+- **Painel (resumo), mapa de calor e relatório:** vêm das rotas `/v1/dashboard/*` da API (resumo, mapa de calor por células e relatório com CSV). Em "Agentes em campo" o número é de agentes ativos, e o texto abaixo diz quantos estão em atendimento agora. No Relatórios, o período (24 horas, 7 dias ou 30 dias) escolhe a janela pedida à API.
+- **Abrigos:** as listas mostram só os cadastrados na API (os ativos). No mapa há uma camada opcional, desligada por padrão, com os candidatos do OpenStreetMap (locais não validados, desenhados com um marcador tracejado). Ela baixa o arquivo de ~3 MB só quando é ligada e esconde o candidato que já é um abrigo cadastrado.
 - **Socorro:** a lista da API não traz endereço, nome de quem pediu nem distância; o painel mostra a descrição e `-`.
 - **Usuários:** a tela explica que falta `GET /admin/users` e sai do menu.
 - **Sessão:** o token de acesso dura 15 minutos e o painel renova sozinho. Se a renovação falhar, volta para o login. Os tokens ficam no `localStorage` do navegador.
@@ -98,6 +101,7 @@ Para quem for montar o README raiz do projeto, esta é a ordem em que as partes 
 | `/abrigos` | agente, gestor, admin | candidatos e ativos, busca, edição, entrada e saída |
 | `/alertas` | gestor, admin | emitir (área no mapa) e encerrar |
 | `/relatorios` | gestor, admin | indicadores, exportar CSV, imprimir ou salvar em PDF |
+| `/risco` | gestor, admin | pesos e limiares do Nível de Risco (NR): editar, publicar versão com justificativa, histórico |
 | `/usuarios` | admin | perfis e ativação |
 | `/auditoria` | admin | trilha de auditoria com hash encadeado |
 

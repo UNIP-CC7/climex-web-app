@@ -1,4 +1,19 @@
-import type { Alert, AppUser, AuditEntry, DashboardSummary, LatLng, RescueRequest, RescueStatus, Role, Severity, Shelter } from '@/domain/types'
+import type {
+  Alert,
+  AppUser,
+  AuditEntry,
+  DashboardSummary,
+  LatLng,
+  Report,
+  RescueRequest,
+  RescueStatus,
+  RiskConfig,
+  RiskConfigVersion,
+  Role,
+  Severity,
+  Shelter,
+} from '@/domain/types'
+import type { HeatCell } from '@/lib/heat'
 
 /**
  * Contratos de serviço do painel. Há duas implementações com as mesmas assinaturas:
@@ -33,6 +48,12 @@ export interface RescueService {
 }
 export interface DashboardService {
   summary(): Promise<DashboardSummary>
+  /** Concentração de solicitações de socorro nas últimas `hours` horas, em células de grade. */
+  heatmap(hours: number): Promise<HeatCell[]>
+  /** Relatório pós-evento das últimas `hours` horas. */
+  report(hours: number): Promise<Report>
+  /** O mesmo relatório em CSV, pronto para baixar. */
+  reportCsv(hours: number): Promise<string>
 }
 export interface UsersService {
   list(): Promise<AppUser[]>
@@ -42,6 +63,14 @@ export interface UsersService {
 export interface AuditService {
   list(): Promise<AuditEntry[]>
 }
+export interface RiskConfigService {
+  /** Versão em vigor (version 0 = padrão embutido na API, sem versão gravada). */
+  active(): Promise<RiskConfigVersion>
+  /** Versões gravadas, da mais nova para a mais antiga. */
+  history(): Promise<RiskConfigVersion[]>
+  /** Cria uma versão nova e a ativa; nunca sobrescreve. Vale só para solicitações criadas depois. */
+  publish(config: RiskConfig, reason: string): Promise<RiskConfigVersion>
+}
 export interface Services {
   auth: AuthService
   alerts: AlertsService
@@ -50,4 +79,5 @@ export interface Services {
   dashboard: DashboardService
   users: UsersService
   audit: AuditService
+  riskConfig: RiskConfigService
 }

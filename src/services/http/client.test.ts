@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ApiError, createHttpClient } from './client'
+import { ApiError, createHttpClient, normalizeBaseUrl } from './client'
 import type { TokenStore, Tokens } from './session'
 
 function memoryTokens(initial: Tokens | null): TokenStore & { current: Tokens | null } {
@@ -50,6 +50,36 @@ describe('cliente HTTP', () => {
     const c = createHttpClient({ fetchImpl, tokens: memoryTokens(null), baseUrl: 'http://api.test/' })
     await c.get('/x')
     expect(fetchImpl.mock.calls[0][0]).toBe('http://api.test/v1/x')
+  })
+
+  it('normaliza o endereço base: barra final, /v1 e espaços saem', () => {
+    expect(normalizeBaseUrl(undefined)).toBe('')
+    expect(normalizeBaseUrl('  https://api.exemplo.com.br/v1/ ')).toBe('https://api.exemplo.com.br')
+    expect(normalizeBaseUrl('https://api.exemplo.com.br//')).toBe('https://api.exemplo.com.br')
+    expect(normalizeBaseUrl('http://localhost:3000')).toBe('http://localhost:3000')
+  })
+
+  it.each([
+    'api.exemplo.com.br',
+    'ftp://api.exemplo.com.br',
+    'https://api.exemplo.com.br/outra',
+    'https://u:p@api.exemplo.com.br',
+    'https://api.exemplo.com.br?x=1',
+    'https://api.exemplo.com.br#a',
+  ])('recusa endereço que não é só uma origem http(s): %s', (v) => {
+    expect(() => normalizeBaseUrl(v)).toThrow(/Endereço da API inválido/)
+  })
+
+  it('usa VITE_API_BASE_URL quando o endereço base não é informado', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.exemplo.com.br/')
+    try {
+      const fetchImpl = vi.fn(() => Promise.resolve(json(200, {}))) as unknown as typeof fetch & ReturnType<typeof vi.fn>
+      const c = createHttpClient({ fetchImpl, tokens: memoryTokens(null) })
+      await c.get('/x')
+      expect(fetchImpl.mock.calls[0][0]).toBe('https://api.exemplo.com.br/v1/x')
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('envia corpo JSON em POST e PATCH e não manda Authorization sem token', async () => {

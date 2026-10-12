@@ -43,7 +43,7 @@ describe('serviços simulados: escrita', () => {
   it('cria e encerra alertas', async () => {
     const a = await s.alerts.create({ title: 'Teste', severity: 'ATENCAO', neighborhood: 'Centro', center: [-23.44, -46.91], radiusKm: 1, hours: 2 })
     expect(a.source).toBe('MANUAL')
-    expect(a.polygon).toHaveLength(4)
+    expect(a.polygons[0]).toHaveLength(4)
     expect((await s.alerts.list()).find((x) => x.id === a.id)?.active).toBe(true)
     await s.alerts.close(a.id)
     expect((await s.alerts.list()).find((x) => x.id === a.id)?.active).toBe(false)

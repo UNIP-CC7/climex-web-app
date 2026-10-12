@@ -1,5 +1,21 @@
-import type { Alert, AppUser, DashboardSummary, RescueRequest, RiskBand, Role, Shelter, ShelterKind } from '@/domain/types'
+import type {
+  Alert,
+  AppUser,
+  DashboardSummary,
+  Report,
+  RescueRequest,
+  RescueStatus,
+  RiskBand,
+  RiskConfigVersion,
+  Role,
+  Shelter,
+  ShelterKind,
+} from '@/domain/types'
+import { DEFAULT_RISK_CONFIG } from '@/lib/riskConfig'
+import { heatCells, type HeatCell } from '@/lib/heat'
+import { reportToCsv } from '@/lib/reportCsv'
 import { ALERTS, AUDIT, CENTER, RESCUE, USERS, area, fakeHash } from '@/mocks/seed'
+import { PUBLIC, distanceKm, loadOsmCandidates } from '../osm'
 import type { Services } from '../types'
 
 const delay = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v), ms))
@@ -9,6 +25,15 @@ let alerts: Alert[] = structuredClone(ALERTS)
 let rescue: RescueRequest[] = structuredClone(RESCUE)
 let users: AppUser[] = structuredClone(USERS)
 const audit = structuredClone(AUDIT)
+let riskVersions: RiskConfigVersion[] = [
+  {
+    version: 1,
+    config: structuredClone(DEFAULT_RISK_CONFIG),
+    isActive: true,
+    reason: 'Pesos iniciais (padrão do sistema)',
+    createdAt: '2026-10-10T12:00:00.000Z',
+  },
+]
 
 function log(author: string, role: Role, action: string, entity: string, status = 200) {
   const prev = audit[audit.length - 1]?.hash ?? '0'.repeat(16)
@@ -28,27 +53,6 @@ function log(author: string, role: Role, action: string, entity: string, status 
 }
 
 /* ---------- abrigos: locais reais do OpenStreetMap, capacidade simulada ---------- */
-interface OsmItem {
-  osmId: string
-  tipo: string
-  papel: string
-  nome: string
-  lat: number
-  lng: number
-  rua: string | null
-  bairro: string | null
-  cidade: string | null
-  telefone: string | null
-}
-const PRIVATE = /clube|academia|pilates|crossfit|kart|natação|society|arena|spa\b|studio|jiu|muay|dança/i
-const PUBLIC = /municipal|estadual|emef|emei|emeb|\bee\b|\bceu\b|etec|fatec|ginásio|poliesportivo|centro (esportivo|comunit|de atividades)/i
-
-function km(a: number, b: number, c: number, d: number) {
-  const r = Math.PI / 180
-  const x = (c - a) * r
-  const y = (d - b) * r * Math.cos(a * r)
-  return 6371 * Math.sqrt(x * x + y * y)
-}
 function hash(s: string) {
   let h = 0
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0
@@ -57,17 +61,12 @@ function hash(s: string) {
 
 let sheltersCache: Promise<Shelter[]> | null = null
 function loadShelters(): Promise<Shelter[]> {
-  sheltersCache ??= fetch(`${import.meta.env.BASE_URL}data/osm-sp-estado.json`)
-    .then((r) => {
-      if (!r.ok) throw new Error(`Base de abrigos indisponível (${r.status})`)
-      return r.json() as Promise<{ itens: OsmItem[] }>
-    })
-    .then(({ itens }) => {
-      const list = itens.filter((o) => o.papel === 'candidato_abrigo' && !(o.tipo === 'ginasio_esportivo' && PRIVATE.test(o.nome)))
+  sheltersCache ??= loadOsmCandidates()
+    .then((list) => {
       const nearest = new Set(
         list
           .filter((o) => (o.tipo === 'escola' || o.tipo === 'ginasio_esportivo') && PUBLIC.test(o.nome))
-          .map((o) => ({ id: o.osmId, d: km(CENTER[0], CENTER[1], o.lat, o.lng) }))
+          .map((o) => ({ id: o.osmId, d: distanceKm(CENTER[0], CENTER[1], o.lat, o.lng) }))
           .sort((a, b) => a.d - b.d)
           .slice(0, 7)
           .map((x) => x.id),
@@ -94,10 +93,60 @@ function loadShelters(): Promise<Shelter[]> {
         }
       })
     })
+    .catch((e: unknown) => {
+      sheltersCache = null // uma falha não pode ficar guardada para sempre
+      throw e
+    })
   return sheltersCache
 }
 
 const EMPTY_RISK: Record<RiskBand, number> = { CRITICO: 0, ALTO: 0, MEDIO: 0, BAIXO: 0 }
+
+function topAlert(list: Alert[]): DashboardSummary['maxAlert'] {
+  const a = [...list].sort((x, y) => SEV_ORDER[y.severity] - SEV_ORDER[x.severity])[0]
+  return a ? { id: a.id, title: a.title, severity: a.severity, place: a.neighborhood } : null
+}
+
+const STATUS_API: Record<RescueStatus, string> = { ABERTA: 'PENDING', EM_ATENDIMENTO: 'ASSIGNED', CONCLUIDA: 'RESOLVED', CANCELADA: 'CANCELLED' }
+const count = <T>(items: T[], key: (i: T) => string) => items.reduce<Record<string, number>>((m, i) => ({ ...m, [key(i)]: (m[key(i)] ?? 0) + 1 }), {})
+
+/** Relatório do modo simulado: os mesmos números que a API devolve, calculados sobre o estado em memória. */
+function buildMockReport(hours: number, allShelters: Shelter[]): Report {
+  const to = new Date()
+  const from = new Date(to.getTime() - hours * 3_600_000)
+  const inPeriod = rescue.filter((r) => new Date(r.openedAt) >= from)
+  const closed = inPeriod.filter((r) => r.status === 'CONCLUIDA' && r.resolvedAt)
+  const minutes = closed.map((r) => (new Date(r.resolvedAt as string).getTime() - new Date(r.openedAt).getTime()) / 60000)
+  const byRisk = { ...EMPTY_RISK }
+  inPeriod.forEach((r) => byRisk[r.risk.band]++)
+  const created = alerts.filter((a) => new Date(a.issuedAt) >= from)
+  return {
+    periodHours: hours,
+    from: from.toISOString(),
+    to: to.toISOString(),
+    rescue: {
+      total: inPeriod.length,
+      sos: inPeriod.filter((r) => r.sos).length,
+      resolved: inPeriod.filter((r) => r.status === 'CONCLUIDA').length,
+      cancelled: inPeriod.filter((r) => r.status === 'CANCELADA').length,
+      avgResolutionMinutes: minutes.length ? Math.round((minutes.reduce((n, m) => n + m, 0) / minutes.length) * 10) / 10 : null,
+      byStatus: count(inPeriod, (r) => STATUS_API[r.status]),
+      byRisk,
+      byType: count(inPeriod, (r) => r.type),
+    },
+    alerts: { total: created.length, byLevel: count(created, (a) => a.severity) },
+    shelters: allShelters
+      .filter((s) => s.status === 'ATIVO')
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        capacity: s.capacity,
+        occupancy: s.occupancy,
+        available: Math.max(0, s.capacity - s.occupancy),
+        rate: s.capacity > 0 ? Math.round((s.occupancy / s.capacity) * 1000) / 10 : 0,
+      })),
+  }
+}
 const SEV_ORDER = { OBSERVACAO: 0, ATENCAO: 1, ALERTA: 2, ALERTA_MAXIMO: 3 } as const
 
 export const mockServices: Services = {
@@ -116,7 +165,7 @@ export const mockServices: Services = {
         severity,
         neighborhood,
         city: 'Santana de Parnaíba',
-        polygon: area(center, radiusKm / 111),
+        polygons: [area(center, radiusKm / 111)],
         issuedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
         active: true,
@@ -178,7 +227,7 @@ export const mockServices: Services = {
       const attending = rescue.filter((r) => r.status === 'EM_ATENDIMENTO')
       return delay({
         activeAlerts: act.length,
-        maxAlert: [...act].sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])[0] ?? null,
+        maxAlert: topAlert(act),
         openRescue: open.length,
         openByRisk: byRisk,
         sheltersWithSpots: active.filter((s) => s.capacity - s.occupancy > 20).length,
@@ -191,6 +240,12 @@ export const mockServices: Services = {
         updatedAt: new Date().toISOString(),
       })
     },
+    heatmap: async (hours: number): Promise<HeatCell[]> => {
+      const since = Date.now() - hours * 3_600_000
+      return delay(heatCells(rescue.filter((r) => new Date(r.openedAt).getTime() >= since)))
+    },
+    report: async (hours: number): Promise<Report> => buildMockReport(hours, await loadShelters()),
+    reportCsv: async (hours: number): Promise<string> => reportToCsv(await buildMockReport(hours, await loadShelters())),
   },
   users: {
     list: () => delay(users.map((u) => ({ ...u }))),
@@ -206,4 +261,20 @@ export const mockServices: Services = {
     },
   },
   audit: { list: () => delay([...audit].reverse()) },
+  riskConfig: {
+    active: () => delay(structuredClone(riskVersions.find((v) => v.isActive) ?? riskVersions[0]!)),
+    history: () => delay(structuredClone([...riskVersions].reverse())),
+    publish: (config, reason) => {
+      const next: RiskConfigVersion = {
+        version: (riskVersions[riskVersions.length - 1]?.version ?? 0) + 1,
+        config: structuredClone(config),
+        isActive: true,
+        reason,
+        createdAt: new Date().toISOString(),
+      }
+      riskVersions = [...riskVersions.map((v) => ({ ...v, isActive: false })), next]
+      log('Marcos Cavalcante', 'GESTOR', 'PUT /admin/risk-config', `RiskConfig v${next.version}`)
+      return delay(structuredClone(next))
+    },
+  },
 }
