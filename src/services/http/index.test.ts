@@ -123,6 +123,35 @@ describe('serviços HTTP: alertas', () => {
     })
     expect(new Date(body.expiresAt).getTime()).toBeGreaterThan(Date.now() + 5 * 3_600_000)
   })
+  it('com polígono desenhado, envia o GeoJSON fechado em [lng, lat] e não envia raio', async () => {
+    client.post.mockResolvedValue(apiAlert)
+    await services.alerts.create({
+      title: 'Chuva',
+      severity: 'ALERTA_MAXIMO',
+      neighborhood: 'Centro',
+      center: [-23.4, -46.9],
+      radiusKm: 1.2,
+      hours: 6,
+      polygon: [
+        [-23.5, -46.9],
+        [-23.5, -46.8],
+        [-23.4, -46.8],
+      ],
+    })
+    const body = client.post.mock.calls[0]![1]
+    expect(body.polygon).toEqual({
+      type: 'Polygon',
+      coordinates: [
+        [
+          [-46.9, -23.5],
+          [-46.8, -23.5],
+          [-46.8, -23.4],
+          [-46.9, -23.5],
+        ],
+      ],
+    })
+    expect(body).not.toHaveProperty('radiusMeters')
+  })
   it('ids com caracteres de caminho são codificados', async () => {
     client.patch.mockResolvedValue({})
     await services.alerts.close('a/../b?x=1')
@@ -161,6 +190,18 @@ describe('serviços HTTP: abrigos', () => {
     client.patch.mockResolvedValue({ ...apiShelter, capacity: 80 })
     expect((await services.shelters.update('s1', { capacity: 80 })).capacity).toBe(80)
     expect(client.patch).toHaveBeenCalledWith('/shelters/s1', { capacity: 80 })
+  })
+  it('"candidato" devolve o abrigo à revisão (PATCH /status), em vez de só desativar', async () => {
+    client.patch.mockResolvedValue({ ...apiShelter, status: 'CANDIDATE', isActive: false })
+    const r = await services.shelters.update('s1', { capacity: 80, status: 'CANDIDATO' })
+    expect(client.patch).toHaveBeenNthCalledWith(1, '/shelters/s1', { capacity: 80 })
+    expect(client.patch).toHaveBeenNthCalledWith(2, '/shelters/s1/status', expect.objectContaining({ status: 'CANDIDATE' }))
+    expect(r.status).toBe('INATIVO')
+  })
+  it('lista os confirmados, ativos ou não, para o abrigo desativado não sumir', async () => {
+    client.get.mockResolvedValue({ data: [apiShelter], total: 1 })
+    await services.shelters.list()
+    expect(client.get).toHaveBeenCalledWith('/shelters', expect.objectContaining({ status: 'CONFIRMED' }))
   })
   it('registra entrada e explica que a saída não existe na API', async () => {
     client.post.mockResolvedValue({ shelter: { ...apiShelter, currentOccupancy: 11 } })

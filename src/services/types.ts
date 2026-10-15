@@ -40,7 +40,15 @@ export interface AuthService {
 }
 export interface AlertsService {
   list(): Promise<Alert[]>
-  create(input: { title: string; severity: Severity; neighborhood: string; center: LatLng; radiusKm: number; hours: number }): Promise<Alert>
+  create(input: {
+    title: string
+    severity: Severity
+    neighborhood: string
+    center: LatLng
+    radiusKm: number
+    hours: number
+    polygon?: LatLng[]
+  }): Promise<Alert>
   close(id: string): Promise<void>
 }
 export interface SheltersService {

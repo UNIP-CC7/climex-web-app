@@ -29,7 +29,7 @@ const KIND: Record<ShelterKind, string> = {
   assistencia_social: 'Assistência social',
 }
 const PAGE = 40
-type View = 'ATIVO' | 'CANDIDATO'
+type View = 'ATIVO' | 'INATIVO' | 'CANDIDATO'
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export default function SheltersScreen() {
@@ -53,6 +53,8 @@ export default function SheltersScreen() {
     )
   }, [data, view, kind, q])
   const countActive = (data ?? []).filter((s) => s.status === 'ATIVO').length
+  const countInactive = (data ?? []).filter((s) => s.status === 'INATIVO').length
+  const countCandidates = (data ?? []).filter((s) => s.status === 'CANDIDATO').length
 
   // zerar a mutation em andamento reabilitaria o Salvar e permitiria um segundo envio
   function clearUpdateError() {
@@ -101,6 +103,16 @@ export default function SheltersScreen() {
           Abrigos ativos · {countActive}
         </Chip>
         <Chip
+          $on={view === 'INATIVO'}
+          aria-pressed={view === 'INATIVO'}
+          onClick={() => {
+            setView('INATIVO')
+            setLimit(PAGE)
+          }}
+        >
+          Inativos · {fmt.format(countInactive)}
+        </Chip>
+        <Chip
           $on={view === 'CANDIDATO'}
           aria-pressed={view === 'CANDIDATO'}
           onClick={() => {
@@ -108,7 +120,7 @@ export default function SheltersScreen() {
             setLimit(PAGE)
           }}
         >
-          Candidatos · {fmt.format((data?.length ?? 0) - countActive)}
+          Candidatos · {fmt.format(countCandidates)}
         </Chip>
         <SearchBox>
           <label htmlFor="busca">Buscar</label>
@@ -157,8 +169,8 @@ export default function SheltersScreen() {
               Situação
               <select name="status" defaultValue={editing.status}>
                 <option value="ATIVO">Ativo (recebendo pessoas)</option>
-                <option value="CANDIDATO">Candidato (não validado)</option>
-                <option value="INATIVO">Inativo</option>
+                <option value="INATIVO">Inativo (desativado, continua cadastrado)</option>
+                <option value="CANDIDATO">{useMocks ? 'Candidato (não validado)' : 'Candidato (volta para a fila de revisão)'}</option>
               </select>
             </Field>
             <div className="full" style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
@@ -210,7 +222,7 @@ export default function SheltersScreen() {
         ) : list.length === 0 ? (
           <Empty
             title="Nenhum local encontrado"
-            hint={view === 'ATIVO' ? 'Ative um candidato para ele aparecer aqui.' : 'Tente outro termo de busca.'}
+            hint={view === 'ATIVO' ? 'Ative um abrigo para ele aparecer aqui.' : 'Tente outro termo de busca.'}
           />
         ) : (
           <TableWrap>
@@ -286,7 +298,7 @@ export default function SheltersScreen() {
       <Note>
         {useMocks
           ? 'Os candidatos vêm do OpenStreetMap (ODbL, © colaboradores do OpenStreetMap) e não são abrigos oficiais. Capacidade e ocupação são simuladas até existir o cadastro da Defesa Civil.'
-          : 'Abrigos ativos cadastrados na API. Ela ainda não tem rota para registrar a saída de pessoas nem para cadastrar abrigos, e um abrigo desativado some desta lista.'}
+          : 'Abrigos confirmados, ativos e inativos. Os candidatos importados do OpenStreetMap ficam em Abrigos > Revisão e só aparecem aqui depois de confirmados.'}
       </Note>
     </Page>
   )
