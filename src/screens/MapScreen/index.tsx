@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { AlertLayer, BaseMap, AlertHeatLayer, HeatLayer, RescueLayer, ShelterLayer, SEVERITY_COLOR } from '@/components/map'
 import { Page } from '@/components/ui'
-import { SEVERITY_LABEL, type Severity } from '@/domain/types'
-import { useAlerts, useHeatmap, useOsmCandidates, useRescue, useShelters } from '@/lib/queries'
+import { bboxKey, snapBbox } from '@/lib/bbox'
+import { fmt } from '@/lib/format'
+import { SEVERITY_LABEL, type Bbox, type Severity } from '@/domain/types'
+import { useAlerts, useHeatmap, useMapCandidates, useRescue, useShelters } from '@/lib/queries'
 import { useMocks } from '@/services'
-import { withoutRegistered } from '@/services/osm'
 import { Credit, Frame, Layers, Legend, Loading } from './styles'
 
 type LayerKey = 'alerts' | 'shelters' | 'rescue' | 'heat' | 'alertHeat' | 'candidates'
@@ -33,25 +34,36 @@ export default function MapScreen() {
 
   const heat = useHeatmap(on.heat)
   const candidatesOn = !useMocks && on.candidates
-  const osm = useOsmCandidates(candidatesOn)
-  // abrigo cadastrado e candidato no mesmo ponto: vale o cadastrado
-  const candidates = useMemo(() => withoutRegistered(osm.data ?? [], shelters.data ?? []), [osm.data, shelters.data])
+  // área visível (alargada e na grade): é o que pedimos à API, e só muda quando o mapa anda de verdade
+  const [area, setArea] = useState<Bbox | null>(null)
+  const onBounds = useCallback(
+    (b: Bbox) =>
+      setArea((prev) => {
+        const next = snapBbox(b)
+        return bboxKey(prev) === bboxKey(next) ? prev : next
+      }),
+    [],
+  )
+  const cands = useMapCandidates(candidatesOn, area)
+  const hidden = cands.data ? cands.data.total - cands.data.items.length : 0
 
   return (
     <Page>
       <Frame>
-        <BaseMap wheel zoom={13}>
+        <BaseMap wheel zoom={13} onBounds={onBounds}>
           {on.alerts && <AlertLayer alerts={alerts.data ?? []} />}
           {on.heat && <HeatLayer cells={heat.data ?? []} />}
           {on.alertHeat && <AlertHeatLayer alerts={alerts.data ?? []} />}
           {on.shelters && <ShelterLayer shelters={shelters.data ?? []} />}
-          {candidatesOn && osm.isSuccess && <ShelterLayer shelters={candidates} candidate />}
+          {candidatesOn && cands.isSuccess && <ShelterLayer shelters={cands.data.items} candidate />}
           {on.rescue && <RescueLayer items={rescue.data ?? []} />}
         </BaseMap>
         {shelters.isPending && <Loading role="status">Carregando abrigos do estado...</Loading>}
-        {candidatesOn && osm.isFetching && <Loading role="status">Carregando candidatos do OpenStreetMap...</Loading>}
-        {candidatesOn && osm.isError && (
-          <Loading role="alert">Não foi possível carregar os candidatos: {osm.error instanceof Error ? osm.error.message : 'tente de novo.'}</Loading>
+        {candidatesOn && cands.isFetching && <Loading role="status">Carregando candidatos do OpenStreetMap...</Loading>}
+        {candidatesOn && cands.isError && (
+          <Loading role="alert">
+            Não foi possível carregar os candidatos: {cands.error instanceof Error ? cands.error.message : 'tente de novo.'}
+          </Loading>
         )}
         <Layers role="group" aria-label="Camadas do mapa">
           {LAYERS.map((l) => (
@@ -61,13 +73,16 @@ export default function MapScreen() {
             </label>
           ))}
         </Layers>
-        {candidatesOn && osm.isSuccess && (
+        {candidatesOn && cands.isSuccess && (
           <Credit>
             Candidatos: locais do OpenStreetMap,{' '}
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
               © colaboradores do OpenStreetMap
             </a>{' '}
             (licença ODbL). Não são abrigos oficiais.
+            {hidden > 0 &&
+              cands.data &&
+              ` Mostrando ${fmt.format(cands.data.items.length)} de ${fmt.format(cands.data.total)} candidatos nesta área. Aproxime o mapa para ver os demais.`}
           </Credit>
         )}
         <Legend>

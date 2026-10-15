@@ -1,11 +1,13 @@
+import { occupancyText } from '@/lib/shelterLabel'
 import { useEffect, useMemo, type ReactNode } from 'react'
 import L from 'leaflet'
-import { Circle, CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker, useMap } from 'react-leaflet'
+import { Circle, CircleMarker, MapContainer, Polygon, Popup, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import {
   RESCUE_TYPE_LABEL,
   SEVERITY_LABEL,
   type Alert,
+  type Bbox,
   type LatLng,
   type RescueRequest,
   type RiskBand,
@@ -43,22 +45,38 @@ const candidateIcon = L.divIcon({
   iconSize: [22, 22],
 })
 
+/** Avisa a área visível do mapa ao abrir e a cada vez que o usuário termina de mexer (arrastar ou dar zoom). */
+function BoundsWatcher({ onBounds }: { onBounds: (b: Bbox) => void }) {
+  const map = useMap()
+  const report = () => {
+    const b = map.getBounds()
+    onBounds({ minLng: b.getWest(), minLat: b.getSouth(), maxLng: b.getEast(), maxLat: b.getNorth() })
+  }
+  useMapEvents({ moveend: report })
+  useEffect(report, []) // eslint-disable-line react-hooks/exhaustive-deps -- só na abertura; depois quem avisa é o moveend
+  return null
+}
+
 export function BaseMap({
   center = CENTER,
   zoom = 12,
   wheel = false,
   height,
+  onBounds,
   children,
 }: {
   center?: LatLng
   zoom?: number
   wheel?: boolean
   height?: number | string
+  /** recebe a área visível ao abrir e depois de cada movimento */
+  onBounds?: (b: Bbox) => void
   children?: ReactNode
 }) {
   return (
     <MapContainer center={center} zoom={zoom} scrollWheelZoom={wheel} style={{ height: height ?? '100%', minHeight: 320, width: '100%' }}>
       <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© colaboradores do OpenStreetMap" maxZoom={19} />
+      {onBounds && <BoundsWatcher onBounds={onBounds} />}
       {children}
     </MapContainer>
   )
@@ -107,7 +125,7 @@ export function ShelterLayer({ shelters, candidate = false }: { shelters: Shelte
             {[s.street, s.neighborhood].filter(Boolean).join(', ')}
             <br />
             <span style={{ color: theme.colors.muted }}>
-              {s.status === 'ATIVO' ? `Ocupação simulada: ${s.occupancy} / ${s.capacity}` : 'Candidato, ainda não validado pela Defesa Civil'}
+              {s.status === 'ATIVO' ? occupancyText(s) : 'Candidato, ainda não validado pela Defesa Civil'}
             </span>
           </Popup>
         </Marker>
