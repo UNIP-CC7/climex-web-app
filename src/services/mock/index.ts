@@ -231,14 +231,14 @@ export const mockServices: Services = {
   },
   alerts: {
     list: () => delay([...alerts].sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])),
-    create: ({ title, severity, neighborhood, center, radiusKm, hours }) => {
+    create: ({ title, severity, neighborhood, center, radiusKm, hours, polygon }) => {
       const a: Alert = {
         id: `al-${Date.now()}`,
         title,
         severity,
         neighborhood,
         city: 'Santana de Parnaíba',
-        polygons: [area(center, radiusKm / 111)],
+        polygons: [polygon && polygon.length >= 3 ? polygon : area(center, radiusKm / 111)],
         issuedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + hours * 3600000).toISOString(),
         active: true,

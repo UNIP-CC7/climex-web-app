@@ -77,7 +77,8 @@ export interface ApiCreateAlert {
   level: ApiAlertLevel
   latitude: number
   longitude: number
-  radiusMeters: number
+  radiusMeters?: number
+  polygon?: { type: 'Polygon'; coordinates: [number, number][][] }
   city: string
   state: string
   expiresAt: string

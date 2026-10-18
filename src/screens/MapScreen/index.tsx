@@ -54,7 +54,7 @@ export default function MapScreen() {
           {on.alerts && <AlertLayer alerts={alerts.data ?? []} />}
           {on.heat && <HeatLayer cells={heat.data ?? []} />}
           {on.alertHeat && <AlertHeatLayer alerts={alerts.data ?? []} />}
-          {on.shelters && <ShelterLayer shelters={shelters.data ?? []} />}
+          {on.shelters && <ShelterLayer shelters={(shelters.data ?? []).filter((s) => s.status !== 'INATIVO')} />}
           {candidatesOn && cands.isSuccess && <ShelterLayer shelters={cands.data.items} candidate />}
           {on.rescue && <RescueLayer items={rescue.data ?? []} />}
         </BaseMap>

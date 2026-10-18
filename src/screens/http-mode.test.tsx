@@ -266,7 +266,7 @@ describe('Abrigos em modo HTTP', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Capacidade menor que a ocupação atual')
     expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument() // o formulário continua aberto
-    expect(screen.getByText(/Abrigos ativos cadastrados na API/)).toBeInTheDocument()
+    expect(screen.getByText(/Abrigos confirmados na API/)).toBeInTheDocument()
 
     // o erro não sobrevive a cancelar a edição
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
