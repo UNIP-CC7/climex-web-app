@@ -1,6 +1,7 @@
 import type { Alert, AppUser } from '@/domain/types'
 import type { Services } from '../types'
 import { toBboxParam } from '@/lib/bbox'
+import { toGeoJsonPolygon } from '@/lib/polygon'
 import { createHttpClient, type HttpClient } from './client'
 import type {
   ApiAlert,
@@ -58,7 +59,15 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
   // a API não ordena por severidade; o painel mostra a mais grave primeiro, como no modo simulado
   const listAlerts = async (): Promise<Alert[]> =>
     (await client.all<ApiAlert>('/alerts')).map(alertFromApi).sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])
-  const listShelters = async () => (await client.get<{ data: ApiShelter[] }>('/shelters')).data.map(shelterFromApi)
+  const listShelters = async () => {
+    const out: ApiShelter[] = []
+    for (let offset = 0; offset < 5000; offset += 200) {
+      const r = await client.get<ApiReviewList>('/shelters', { status: 'CONFIRMED', limit: 200, offset })
+      out.push(...(r.data as unknown as ApiShelter[]))
+      if (r.data.length < 200 || out.length >= r.total) break
+    }
+    return out.map(shelterFromApi)
+  }
   const listRescue = async () => (await client.all<ApiRescue>('/rescue')).map(rescueFromApi)
 
   return {
@@ -84,14 +93,14 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
     },
     alerts: {
       list: listAlerts,
-      async create({ title, severity, neighborhood, center, radiusKm, hours }) {
+      async create({ title, severity, neighborhood, center, radiusKm, hours, polygon }) {
         const body: ApiCreateAlert = {
           title,
           description: alertDescription(title, neighborhood),
           level: severityToApi(severity),
           latitude: center[0],
           longitude: center[1],
-          radiusMeters: Math.round(radiusKm * 1000),
+          ...(polygon ? { polygon: toGeoJsonPolygon(polygon) } : { radiusMeters: Math.round(radiusKm * 1000) }),
           city: CITY,
           state: STATE,
           expiresAt: new Date(Date.now() + hours * 3_600_000).toISOString(),
@@ -105,6 +114,18 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
     shelters: {
       list: listShelters,
       async update(id, patch) {
+        if (patch.status === 'CANDIDATO') {
+          const data = { ...patch }
+          delete data.status
+          const body = shelterPatchToApi(data)
+          if (Object.keys(body).length > 0) await client.patch<ApiShelter>(`/shelters/${seg(id)}`, body)
+          return shelterFromApi(
+            (await client.patch<ApiReviewShelter>(`/shelters/${seg(id)}/status`, {
+              status: 'CANDIDATE',
+              note: 'Devolvido para revisão pelo painel',
+            })) as unknown as ApiShelter,
+          )
+        }
         return shelterFromApi(await client.patch<ApiShelter>(`/shelters/${seg(id)}`, shelterPatchToApi(patch)))
       },
       async checkIn(id, people) {

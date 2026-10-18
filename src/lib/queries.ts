@@ -81,7 +81,7 @@ export function useUpdateShelter() {
   const inv = useInvalidate()
   return useMutation({
     mutationFn: (v: { id: string; patch: Partial<Pick<Shelter, 'capacity' | 'status' | 'resources'>> }) => services.shelters.update(v.id, v.patch),
-    onSuccess: () => inv('shelters', 'summary', 'report', 'audit'),
+    onSuccess: () => inv('shelters', 'shelter-review', 'summary', 'report', 'audit'),
   })
 }
 export function useCheckIn() {
