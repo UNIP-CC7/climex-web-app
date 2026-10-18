@@ -162,6 +162,28 @@ describe('Abrigos', () => {
     expect(await screen.findByText('Salão Paroquial')).toBeInTheDocument()
   })
 
+  it('lista os ocupantes e registra a saída', async () => {
+    loginAs('GESTOR')
+    renderWithApp(<Shelters />)
+    await screen.findByText('Abrigos ativos · 7')
+    const lastTable = () => screen.getAllByRole('table').at(-1)!
+    const occ = () => within(lastTable()).getAllByRole('row')[1].textContent
+    fireEvent.click(within(lastTable()).getAllByRole('row')[1].querySelector('button[aria-label^="Ver ocupantes"]')!)
+    expect(await screen.findByText(/^Ocupantes:/)).toBeInTheDocument()
+
+    for (;;) {
+      const saidas = await screen.findAllByRole('button', { name: /Registrar saída de/ }).catch(() => [])
+      if (saidas.length === 0) break
+      fireEvent.click(saidas[0])
+      await waitFor(() => expect(screen.queryAllByRole('button', { name: /Registrar saída de/ }).length).toBeLessThan(saidas.length))
+    }
+    expect(await screen.findByText('Ninguém no abrigo')).toBeInTheDocument()
+    await waitFor(() => expect(occ()).toMatch(/0 \/ \d+/))
+
+    fireEvent.click(within(within(lastTable()).getAllByRole('row')[1]).getByRole('button', { name: /Registrar entrada/ }))
+    await waitFor(() => expect(occ()).not.toMatch(/0 \/ \d+/))
+  })
+
   it('mostra erro quando o abrigo está lotado', async () => {
     loginAs('GESTOR')
     renderWithApp(<Shelters />)

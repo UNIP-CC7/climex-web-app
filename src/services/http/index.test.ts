@@ -5,6 +5,12 @@ import { createHttpServices } from './index'
 import type { TokenStore, Tokens } from './session'
 
 const user = (role: string) => ({ id: 'u1', name: 'Carla', phone: '+5511990000003', role, createdAt: '2026-01-01T00:00:00Z' })
+const adminUser = (role: string, extra: object = {}) => ({
+  ...user(role),
+  isActive: true,
+  lastLoginAt: '2026-10-07T10:00:00Z',
+  ...extra,
+})
 const login = (role: string) => ({ accessToken: 'acc', refreshToken: 'ref', expiresIn: 900, user: user(role) })
 
 let tokens: Tokens | null
@@ -162,13 +168,39 @@ describe('serviços HTTP: abrigos', () => {
     expect((await services.shelters.update('s1', { capacity: 80 })).capacity).toBe(80)
     expect(client.patch).toHaveBeenCalledWith('/shelters/s1', { capacity: 80 })
   })
-  it('registra entrada e explica que a saída não existe na API', async () => {
-    client.post.mockResolvedValue({ shelter: { ...apiShelter, currentOccupancy: 11 } })
-    expect((await services.shelters.checkIn('s1', 1)).occupancy).toBe(11)
-    expect(client.post).toHaveBeenCalledWith('/shelters/s1/check-in', { guestCount: 1 })
-    await expect(services.shelters.checkIn('s1', -1)).rejects.toThrow(/saída/)
+  it('registra entrada como visitante e recusa quantidade inválida', async () => {
+    client.post.mockResolvedValue({ shelter: { ...apiShelter, currentOccupancy: 13 } })
+    expect((await services.shelters.checkIn('s1', 3)).occupancy).toBe(13)
+    expect(client.post).toHaveBeenCalledWith('/shelters/s1/check-in', { guestCount: 3, guestName: 'Entrada pelo painel' })
     await expect(services.shelters.checkIn('s1', 0)).rejects.toThrow(/quantas pessoas/)
     expect(client.post).toHaveBeenCalledTimes(1)
+  })
+  it('lista os ocupantes e registra a saída', async () => {
+    client.get.mockResolvedValue({
+      data: [
+        {
+          id: 'c1',
+          displayName: 'Entrada pelo painel',
+          isRegisteredUser: false,
+          guestCount: 2,
+          checkedInAt: '2026-10-07T10:00:00Z',
+          checkedOutAt: null,
+        },
+      ],
+    })
+    expect(await services.shelters.occupants('s1')).toEqual([
+      { id: 'c1', name: 'Entrada pelo painel', people: 2, since: '2026-10-07T10:00:00Z', registered: false },
+    ])
+    expect(client.get).toHaveBeenCalledWith('/shelters/s1/check-ins')
+    client.post.mockResolvedValue({
+      checkInId: 'c1',
+      shelterId: 's1',
+      guestCount: 2,
+      checkedOutAt: 'x',
+      shelter: { ...apiShelter, currentOccupancy: 8 },
+    })
+    expect((await services.shelters.checkOut('s1', 'c1')).occupancy).toBe(8)
+    expect(client.post).toHaveBeenLastCalledWith('/shelters/s1/check-out', { checkInId: 'c1' })
   })
 })
 
@@ -291,15 +323,35 @@ describe('serviços HTTP: socorro, resumo, usuários e auditoria', () => {
     await expect(services.dashboard.reportCsv(168)).resolves.toBe('Seção,Indicador,Valor')
     expect(client.text).toHaveBeenCalledWith('/dashboard/report/csv', { hours: 168 })
   })
-  it('usuários: lista vazia, troca de perfil enviada e ativar/desativar indisponível', async () => {
-    await expect(services.users.list()).resolves.toEqual([])
-    client.patch.mockResolvedValue({ user: user('GESTOR'), revokedSessions: 1 })
+  it('usuários: lista todas as páginas e mapeia último acesso nulo e cidadão', async () => {
+    client.get
+      .mockResolvedValueOnce({
+        data: [adminUser('AGENTE', { id: 'a' })],
+        pagination: { page: 1, limit: 100, total: 2, pages: 2, hasNext: true },
+      })
+      .mockResolvedValueOnce({
+        data: [adminUser('CIDADAO', { id: 'b', lastLoginAt: null, isActive: false })],
+        pagination: { page: 2, limit: 100, total: 2, pages: 2, hasNext: false },
+      })
+    const list = await services.users.list()
+    expect(client.get).toHaveBeenNthCalledWith(1, '/admin/users', { page: 1, limit: 100 })
+    expect(client.get).toHaveBeenNthCalledWith(2, '/admin/users', { page: 2, limit: 100 })
+    expect(list).toEqual([
+      expect.objectContaining({ id: 'a', role: 'AGENTE', active: true, lastAccess: '2026-10-07T10:00:00Z' }),
+      expect.objectContaining({ id: 'b', role: 'CIDADAO', active: false, lastAccess: null }),
+    ])
+  })
+  it('usuários: troca de perfil e ativação/desativação enviadas à API', async () => {
+    client.patch.mockResolvedValue({ user: adminUser('GESTOR'), revokedSessions: 1 })
     const u = await services.users.setRole('u1', 'GESTOR')
     expect(client.patch).toHaveBeenCalledWith('/admin/users/u1/role', { role: 'GESTOR', reason: expect.stringMatching(/.{5,}/) })
     expect(u).toMatchObject({ id: 'u1', role: 'GESTOR' })
     await services.users.setRole('u1', 'ADMIN')
     expect(client.patch).toHaveBeenLastCalledWith('/admin/users/u1/role', expect.objectContaining({ role: 'ADMINISTRADOR' }))
-    await expect(services.users.setActive('u1', false)).rejects.toThrow(/ainda não permite/)
+    client.patch.mockResolvedValue({ user: adminUser('GESTOR', { isActive: false }), revokedSessions: 2 })
+    const off = await services.users.setActive('u1', false)
+    expect(client.patch).toHaveBeenLastCalledWith('/admin/users/u1/status', { isActive: false, reason: expect.stringMatching(/.{5,}/) })
+    expect(off.active).toBe(false)
   })
   it('auditoria vem da mais nova para a mais antiga', async () => {
     const row = (sequence: number) => ({

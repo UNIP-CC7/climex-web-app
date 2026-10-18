@@ -21,7 +21,7 @@ import {
 import { ROLE_LABEL, type Role } from '@/domain/types'
 import { ROUTE_ROLES, useAuth } from '@/features/auth/store'
 import { useAlerts, useRescue, useSummary } from '@/lib/queries'
-import { capabilities, services } from '@/services'
+import { services } from '@/services'
 import { Avatar, Badge, Brand, Content, Main, Me, Nav, NavGroup, Pill, Shell, Side, SubTitle, Top, TopTitle } from './styles'
 
 interface Item {
@@ -81,7 +81,7 @@ export function AppShell() {
   const open = rescue.data?.filter((r) => r.status === 'ABERTA').length ?? 0
   const secs = summary.dataUpdatedAt ? Math.max(0, Math.round((now - summary.dataUpdatedAt) / 1000)) : 0
   const active = alerts.data?.filter((a) => a.active).length ?? 0
-  const visible = ITEMS.filter((i) => canSee(i.to, user.role) && (i.to !== '/usuarios' || capabilities.listUsers))
+  const visible = ITEMS.filter((i) => canSee(i.to, user.role))
 
   return (
     <Shell>

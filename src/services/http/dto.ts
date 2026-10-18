@@ -113,6 +113,21 @@ export interface ApiShelterPatch {
 export interface ApiCheckInResult {
   shelter: ApiShelter
 }
+export interface ApiCheckInRecord {
+  id: string
+  displayName: string
+  isRegisteredUser: boolean
+  guestCount: number
+  checkedInAt: string
+  checkedOutAt: string | null
+}
+export interface ApiCheckOutResult {
+  checkInId: string
+  shelterId: string
+  guestCount: number
+  checkedOutAt: string
+  shelter: ApiShelter
+}
 
 export type ApiRescueType = 'EVACUACAO' | 'FERIDO' | 'ILHADO' | 'DESABAMENTO' | 'OUTROS'
 export type ApiRescueStatus = 'PENDING' | 'ASSIGNED' | 'IN_PROGRESS' | 'RESOLVED' | 'CANCELLED'
@@ -155,8 +170,21 @@ export interface ApiAuditEntry {
   createdAt: string
 }
 
+export interface ApiAdminUser {
+  id: string
+  name: string
+  phone: string
+  role: ApiRole
+  isActive: boolean
+  lastLoginAt: string | null
+  createdAt: string
+}
 export interface ApiChangeRoleResult {
-  user: ApiUser
+  user: ApiAdminUser
+}
+export interface ApiUserStatusResult {
+  user: ApiAdminUser
+  revokedSessions: number
 }
 
 /* ---------- /v1/dashboard ---------- */

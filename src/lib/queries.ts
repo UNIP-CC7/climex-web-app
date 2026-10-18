@@ -87,10 +87,23 @@ export function useUpdateShelter() {
 export function useCheckIn() {
   const inv = useInvalidate()
   return useMutation({
-    mutationFn: (v: { id: string; delta: number }) => services.shelters.checkIn(v.id, v.delta),
-    onSuccess: () => inv('shelters', 'summary', 'report'),
+    mutationFn: (v: { id: string; people: number }) => services.shelters.checkIn(v.id, v.people),
+    onSuccess: () => inv('shelters', 'summary', 'report', 'occupants'),
   })
 }
+export function useCheckOut() {
+  const inv = useInvalidate()
+  return useMutation({
+    mutationFn: (v: { id: string; occupantId: string }) => services.shelters.checkOut(v.id, v.occupantId),
+    onSuccess: () => inv('shelters', 'summary', 'report', 'occupants'),
+  })
+}
+export const useOccupants = (shelterId: string | null) =>
+  useQuery({
+    queryKey: ['occupants', shelterId],
+    queryFn: () => services.shelters.occupants(shelterId!),
+    enabled: shelterId != null,
+  })
 
 export function useSetUserRole() {
   const inv = useInvalidate()

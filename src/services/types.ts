@@ -4,6 +4,7 @@ import type {
   AuditEntry,
   DashboardSummary,
   LatLng,
+  Occupant,
   Report,
   RescueRequest,
   RescueStatus,
@@ -46,7 +47,9 @@ export interface AlertsService {
 export interface SheltersService {
   list(): Promise<Shelter[]>
   update(id: string, patch: Partial<Pick<Shelter, 'capacity' | 'status' | 'resources'>>): Promise<Shelter>
-  checkIn(id: string, delta: number): Promise<Shelter>
+  checkIn(id: string, people: number): Promise<Shelter>
+  occupants(id: string): Promise<Occupant[]>
+  checkOut(id: string, occupantId: string): Promise<Shelter>
 }
 export interface RescueService {
   list(): Promise<RescueRequest[]>

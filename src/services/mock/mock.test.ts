@@ -63,7 +63,14 @@ describe('serviços simulados: escrita', () => {
     const ativo = (await s.shelters.list()).find((x) => x.status === 'ATIVO')!
     const antes = ativo.occupancy
     expect((await s.shelters.checkIn(ativo.id, 1)).occupancy).toBe(antes + 1)
-    expect((await s.shelters.checkIn(ativo.id, -1000)).occupancy).toBe(0)
+    const ocupantes = await s.shelters.occupants(ativo.id)
+    expect(ocupantes.reduce((n, o) => n + o.people, 0)).toBe(antes + 1)
+    let ultimo = ativo
+    for (const o of ocupantes) ultimo = await s.shelters.checkOut(ativo.id, o.id)
+    expect(ultimo.occupancy).toBe(0)
+    expect(await s.shelters.occupants(ativo.id)).toEqual([])
+    await expect(s.shelters.checkOut(ativo.id, 'nao-existe')).rejects.toThrow('não encontrado')
+    await expect(s.shelters.checkIn(ativo.id, 0)).rejects.toThrow('quantas pessoas')
     await expect(s.shelters.checkIn(ativo.id, ativo.capacity + 1)).rejects.toThrow('Abrigo lotado')
     await expect(s.shelters.checkIn('nao-existe', 1)).rejects.toThrow('não encontrado')
     await expect(s.shelters.update('nao-existe', { capacity: 10 })).rejects.toThrow('não encontrado')
