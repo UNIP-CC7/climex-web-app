@@ -91,10 +91,8 @@ describe('Login em modo HTTP', () => {
 })
 
 describe('Usuários em modo HTTP', () => {
-  it('explica que a API não lista usuários em vez de mostrar tabela vazia', () => {
+  it('não mostra tabela vazia quando a API não lista usuários', () => {
     renderWithApp(<Users />)
-    expect(screen.getByText('A API ainda não lista usuários')).toBeInTheDocument()
-    expect(screen.getByText(/GET \/admin\/users/)).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 })
@@ -230,10 +228,10 @@ describe('Socorro em modo HTTP', () => {
     expect(screen.getByText('Desfecho do atendimento')).toBeInTheDocument()
   })
 
-  it('a nota fala da API, não de dados simulados, e a distância ausente vira traço', async () => {
+  it('não mostra aviso de dados simulados', async () => {
     renderWithApp(<Rescue />)
     fireEvent.click(await screen.findByText(/^Em atendimento/))
-    expect(await screen.findByText(/calculado pela API/)).toBeInTheDocument()
+    expect(await screen.findByText('Casa alagada')).toBeInTheDocument()
     expect(screen.queryByText(/Dados simulados/)).not.toBeInTheDocument()
     expect(screen.getByText('Casa alagada')).toBeInTheDocument()
   })
@@ -266,7 +264,6 @@ describe('Abrigos em modo HTTP', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Capacidade menor que a ocupação atual')
     expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument() // o formulário continua aberto
-    expect(screen.getByText(/Abrigos ativos cadastrados na API/)).toBeInTheDocument()
 
     // o erro não sobrevive a cancelar a edição
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
@@ -294,15 +291,14 @@ const relatorio = (over: Record<string, unknown> = {}) => ({
 })
 
 describe('Relatórios em modo HTTP', () => {
-  it('mostra os números do relatório da API e explica a falta de bairro', async () => {
+  it('mostra os números do relatório da API sem o quadro de bairros', async () => {
     loginAs('GESTOR')
     svc.rescueList.mockResolvedValue([caso(), caso({ id: 'r2' })])
     svc.sheltersList.mockResolvedValue([])
     svc.report.mockResolvedValue(relatorio())
     renderWithApp(<Reports />)
-    expect(await screen.findByText('A API não informa o bairro')).toBeInTheDocument()
+    expect(await screen.findByText('Bairros com mais ocorrências', {}, { timeout: 1 }).catch(() => null)).toBeNull()
     expect(screen.queryByText('Sem bairro')).not.toBeInTheDocument()
-    expect(screen.getByText(/Indicadores calculados pela API/)).toBeInTheDocument()
     expect(svc.report).toHaveBeenCalledWith(24)
   })
 

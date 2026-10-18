@@ -7,7 +7,6 @@ import {
   ErrorMsg,
   Field,
   FormGrid,
-  Note,
   Page,
   Panel,
   PanelHead,
@@ -19,8 +18,10 @@ import {
 import type { Shelter, ShelterKind } from '@/domain/types'
 import { fmt } from '@/lib/format'
 import { useCheckIn, useShelters, useUpdateShelter } from '@/lib/queries'
-import { useMocks } from '@/services'
+import { capabilities } from '@/services'
 import { Meter, SearchBox } from './styles'
+
+const addressOf = (s: Shelter) => [s.street, s.neighborhood, s.city].filter(Boolean).join(', ')
 
 const KIND: Record<ShelterKind, string> = {
   escola: 'Escola',
@@ -229,7 +230,7 @@ export default function SheltersScreen() {
                   <tr key={s.id}>
                     <td>
                       {s.name}
-                      <small>{[s.street, s.neighborhood, s.city].filter(Boolean).join(', ') || 'Endereço não informado'}</small>
+                      {addressOf(s) && <small>{addressOf(s)}</small>}
                     </td>
                     <td>{KIND[s.kind]}</td>
                     <td style={{ minWidth: 180 }}>
@@ -243,16 +244,20 @@ export default function SheltersScreen() {
                           </Meter>
                         </>
                       ) : (
-                        <small>Capacidade ainda não informada</small>
+                        <span className="mono">-</span>
                       )}
                     </td>
                     <td>{s.status === 'ATIVO' ? 'Ativo' : s.status === 'INATIVO' ? 'Inativo' : 'Candidato'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {s.status === 'ATIVO' && (
                         <>
-                          <Btn $ghost aria-label={`Registrar saída em ${s.name}`} onClick={() => tryCheckIn(s.id, -1)}>
-                            -1
-                          </Btn>{' '}
+                          {capabilities.shelterCheckOut && (
+                            <>
+                              <Btn $ghost aria-label={`Registrar saída em ${s.name}`} onClick={() => tryCheckIn(s.id, -1)}>
+                                -1
+                              </Btn>{' '}
+                            </>
+                          )}
                           <Btn $ghost aria-label={`Registrar entrada em ${s.name}`} onClick={() => tryCheckIn(s.id, 1)}>
                             +1
                           </Btn>{' '}
@@ -283,11 +288,6 @@ export default function SheltersScreen() {
           </div>
         )}
       </Panel>
-      <Note>
-        {useMocks
-          ? 'Os candidatos vêm do OpenStreetMap (ODbL, © colaboradores do OpenStreetMap) e não são abrigos oficiais. Capacidade e ocupação são simuladas até existir o cadastro da Defesa Civil.'
-          : 'Abrigos ativos cadastrados na API. Ela ainda não tem rota para registrar a saída de pessoas nem para cadastrar abrigos, e um abrigo desativado some desta lista.'}
-      </Note>
     </Page>
   )
 }

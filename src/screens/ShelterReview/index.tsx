@@ -49,7 +49,7 @@ function ConfirmForm({ shelter, pending, onSubmit, onCancel }: ConfirmFormProps)
         <input inputMode="numeric" aria-invalid={!capacityOk} value={capacity} onChange={(e) => setCapacity(e.target.value)} />
         {!capacityOk && (
           <span className="err" role="alert">
-            Informe um número inteiro de 1 a 100.000. A API recusa abrigo sem capacidade.
+            Informe um número inteiro de 1 a 100.000.
           </span>
         )}
       </label>

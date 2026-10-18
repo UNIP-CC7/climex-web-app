@@ -9,6 +9,8 @@ export const useMocks = import.meta.env.VITE_USE_MOCKS !== 'false'
 export const capabilities = {
   /** GET /admin/users não existe: sem ele não há de onde tirar o id para trocar o perfil. */
   listUsers: useMocks,
+  /** POST /shelters/:id/check-out não existe: sem ele o botão de saída sempre falharia. */
+  shelterCheckOut: useMocks,
 }
 
 export const services: Services = useMocks ? mockServices : createHttpServices()

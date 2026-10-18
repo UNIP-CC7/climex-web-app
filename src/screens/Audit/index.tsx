@@ -1,4 +1,4 @@
-import { ErrorMsg, Note, Page, Panel, Skeleton, Table, TableWrap } from '@/components/ui'
+import { ErrorMsg, Page, Panel, Skeleton, Table, TableWrap } from '@/components/ui'
 import { ROLE_LABEL } from '@/domain/types'
 import { useAudit } from '@/lib/queries'
 
@@ -49,10 +49,6 @@ export default function AuditScreen() {
           </TableWrap>
         )}
       </Panel>
-      <Note>
-        Cada registro guarda o hash do anterior, formando uma cadeia. No modo simulado o hash é ilustrativo. No modo HTTP ele vem da API (SHA-256
-        encadeado).
-      </Note>
     </Page>
   )
 }

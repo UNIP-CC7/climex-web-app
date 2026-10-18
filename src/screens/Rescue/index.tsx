@@ -7,7 +7,6 @@ import {
   ErrorMsg,
   Field,
   FormGrid,
-  Note,
   Page,
   Panel,
   PanelHead,
@@ -22,7 +21,6 @@ import { useAuth } from '@/features/auth/store'
 import { ago } from '@/lib/format'
 import { byUrgency } from '@/lib/risk'
 import { useRescue, useSetRescueStatus } from '@/lib/queries'
-import { useMocks } from '@/services'
 
 type Filter = 'ABERTA' | 'EM_ATENDIMENTO' | 'CONCLUIDA' | 'CANCELADA' | 'SOS'
 const isClosed = (r: RescueRequest) => r.status === 'CONCLUIDA' || r.status === 'CANCELADA'
@@ -184,11 +182,6 @@ export default function RescueScreen() {
           </TableWrap>
         )}
       </Panel>
-      <Note>
-        {useMocks
-          ? 'Ordenada por nível de risco e, em empate, pela distância até o agente. O nível vai de 0 a 100, nas faixas Baixo, Médio, Alto e Crítico, e vem de uma regra de exemplo. Dados simulados.'
-          : 'Ordenada pelo nível de risco, de 0 a 100 (faixas Baixo, Médio, Alto e Crítico), calculado pela API. A API ainda não informa a distância até o agente, o bairro nem o nome de quem pediu.'}
-      </Note>
     </Page>
   )
 }

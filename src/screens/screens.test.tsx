@@ -160,7 +160,6 @@ describe('Abrigos', () => {
 
     fireEvent.click(screen.getByText(/^Candidatos/))
     expect(await screen.findByText('Salão Paroquial')).toBeInTheDocument()
-    expect(screen.getAllByText('Capacidade ainda não informada').length).toBeGreaterThan(0)
   })
 
   it('mostra erro quando o abrigo está lotado', async () => {
