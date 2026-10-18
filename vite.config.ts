@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: {
     environment: 'jsdom',
+    env: { VITE_USE_MOCKS: 'true' },
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
     testTimeout: 20_000,

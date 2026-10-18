@@ -208,6 +208,14 @@ describe('Socorro em modo HTTP', () => {
     await waitFor(() => expect(screen.queryByText('Desfecho do atendimento')).not.toBeInTheDocument())
   })
 
+  it('não mostra as colunas que a API não preenche (solicitante e distância do agente)', async () => {
+    renderWithApp(<Rescue />)
+    fireEvent.click(await screen.findByText(/^Em atendimento/))
+    expect(await screen.findByRole('columnheader', { name: 'Pessoas' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Distância do agente' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Solicitante' })).not.toBeInTheDocument()
+  })
+
   it('abrir o formulário leva o foco ao campo do desfecho', async () => {
     renderWithApp(<Rescue />)
     fireEvent.click(await screen.findByText(/^Em atendimento/))

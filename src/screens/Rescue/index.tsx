@@ -21,6 +21,7 @@ import { useAuth } from '@/features/auth/store'
 import { ago } from '@/lib/format'
 import { byUrgency } from '@/lib/risk'
 import { useRescue, useSetRescueStatus } from '@/lib/queries'
+import { useMocks } from '@/services'
 
 type Filter = 'ABERTA' | 'EM_ATENDIMENTO' | 'CONCLUIDA' | 'CANCELADA' | 'SOS'
 const isClosed = (r: RescueRequest) => r.status === 'CONCLUIDA' || r.status === 'CANCELADA'
@@ -146,8 +147,8 @@ export default function RescueScreen() {
                   <th>Nível</th>
                   <th>Tipo</th>
                   <th>Local</th>
-                  <th>Solicitante</th>
-                  <th>Distância do agente</th>
+                  <th>{useMocks ? 'Solicitante' : 'Pessoas'}</th>
+                  {useMocks && <th>Distância do agente</th>}
                   <th>Aberta há</th>
                   <th>Situação</th>
                   <th />
@@ -168,7 +169,7 @@ export default function RescueScreen() {
                       {r.requesterName ? `${r.requesterName}, ` : ''}
                       {r.people} {r.people === 1 ? 'pessoa' : 'pessoas'}
                     </td>
-                    <td className="mono">{r.distanceKm == null ? '-' : `${r.distanceKm.toFixed(1).replace('.', ',')} km`}</td>
+                    {useMocks && <td className="mono">{r.distanceKm == null ? '-' : `${r.distanceKm.toFixed(1).replace('.', ',')} km`}</td>}
                     <td className="mono">{ago(r.openedAt)}</td>
                     <td>
                       {RESCUE_STATUS_LABEL[r.status]}
