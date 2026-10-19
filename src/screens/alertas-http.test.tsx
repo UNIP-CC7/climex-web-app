@@ -21,7 +21,6 @@ vi.mock('react-leaflet', () => ({ Circle: () => null, useMapEvents: () => null }
 const api = { list: vi.fn(), create: vi.fn(), close: vi.fn() }
 vi.mock('@/services', () => ({
   useMocks: false,
-  capabilities: { listUsers: false },
   services: {
     alerts: { list: (...a: unknown[]) => api.list(...a), create: (...a: unknown[]) => api.create(...a), close: (...a: unknown[]) => api.close(...a) },
   },

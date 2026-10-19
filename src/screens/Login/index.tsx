@@ -74,10 +74,7 @@ export default function LoginScreen() {
         </h1>
         {useMocks ? (
           <>
-            <p>
-              Painel da Defesa Civil, em modo simulado: não há login de verdade. Escolha um perfil para ver o painel como ele aparece para cada
-              função.
-            </p>
+            <p>Painel da Defesa Civil. Escolha um perfil para entrar.</p>
             <div role="group" aria-label="Perfil de acesso">
               {OPTIONS.map((o) => (
                 <Choice key={o.role} disabled={busy !== null} onClick={() => enter(o.role)}>
@@ -89,7 +86,7 @@ export default function LoginScreen() {
           </>
         ) : (
           <>
-            <p>Painel da Defesa Civil. Entre com o telefone e a senha cadastrados na API.</p>
+            <p>Painel da Defesa Civil. Entre com o telefone e a senha.</p>
             <PasswordForm />
           </>
         )}

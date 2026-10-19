@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { Route, Routes } from 'react-router-dom'
 import { useAuth } from '@/features/auth/store'
 import { SESSION_EXPIRED_EVENT, browserTokens } from '@/services/http/session'
@@ -19,6 +19,10 @@ const svc = {
   rescueList: vi.fn(),
   setStatus: vi.fn(),
   sheltersList: vi.fn(),
+  occupants: vi.fn(),
+  checkOut: vi.fn(),
+  usersList: vi.fn(),
+  setActive: vi.fn(),
   sheltersUpdate: vi.fn(),
   alertsList: vi.fn(),
   summary: vi.fn(),
@@ -27,12 +31,17 @@ const svc = {
 }
 vi.mock('@/services', () => ({
   useMocks: false,
-  capabilities: { listUsers: false },
   services: {
     auth: { loginWithPassword: (...a: unknown[]) => loginWithPassword(...a), login: vi.fn(), logout: vi.fn() },
-    users: { list: vi.fn(async () => []), setRole: vi.fn(), setActive: vi.fn() },
+    users: { list: (...a: unknown[]) => svc.usersList(...a), setRole: vi.fn(), setActive: (...a: unknown[]) => svc.setActive(...a) },
     rescue: { list: (...a: unknown[]) => svc.rescueList(...a), setStatus: (...a: unknown[]) => svc.setStatus(...a) },
-    shelters: { list: (...a: unknown[]) => svc.sheltersList(...a), update: (...a: unknown[]) => svc.sheltersUpdate(...a), checkIn: vi.fn() },
+    shelters: {
+      list: (...a: unknown[]) => svc.sheltersList(...a),
+      update: (...a: unknown[]) => svc.sheltersUpdate(...a),
+      checkIn: vi.fn(),
+      occupants: (...a: unknown[]) => svc.occupants(...a),
+      checkOut: (...a: unknown[]) => svc.checkOut(...a),
+    },
     alerts: { list: (...a: unknown[]) => svc.alertsList(...a), create: vi.fn(), close: vi.fn() },
     dashboard: {
       summary: (...a: unknown[]) => svc.summary(...a),
@@ -90,12 +99,42 @@ describe('Login em modo HTTP', () => {
   })
 })
 
+const appUser = (over: Record<string, unknown> = {}) => ({
+  id: 'u1',
+  name: 'Renata Lopes',
+  role: 'AGENTE',
+  phone: '+5511990000001',
+  lastAccess: new Date(Date.now() - 600_000).toISOString(),
+  active: true,
+  ...over,
+})
+
 describe('Usuários em modo HTTP', () => {
-  it('explica que a API não lista usuários em vez de mostrar tabela vazia', () => {
+  it('lista a equipe, esconde cidadãos e mostra "-" para quem nunca entrou', async () => {
+    loginAs('ADMIN')
+    svc.usersList.mockResolvedValue([
+      appUser(),
+      appUser({ id: 'u2', name: 'Paulo Nunca', lastAccess: null }),
+      appUser({ id: 'u3', name: 'Maria Cidadã', role: 'CIDADAO' }),
+    ])
     renderWithApp(<Users />)
-    expect(screen.getByText('A API ainda não lista usuários')).toBeInTheDocument()
-    expect(screen.getByText(/GET \/admin\/users/)).toBeInTheDocument()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(await screen.findByText('Renata Lopes')).toBeInTheDocument()
+    expect(within(screen.getByText('Paulo Nunca').closest('tr')!).getByText('-')).toBeInTheDocument()
+    expect(screen.queryByText('Maria Cidadã')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Mostrar cidadãos'))
+    expect(await screen.findByText('Maria Cidadã')).toBeInTheDocument()
+    expect(within(screen.getByText('Maria Cidadã').closest('tr')!).getByRole('option', { name: 'Cidadão' })).toBeDisabled()
+  })
+
+  it('mostra o erro da API ao desativar', async () => {
+    loginAs('ADMIN')
+    svc.usersList.mockResolvedValue([appUser()])
+    svc.setActive.mockRejectedValue(new Error('É preciso manter ao menos um administrador ativo.'))
+    renderWithApp(<Users />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Desativar' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('ao menos um administrador')
+    expect(svc.setActive).toHaveBeenCalledWith('u1', false)
   })
 })
 
@@ -169,6 +208,14 @@ describe('Socorro em modo HTTP', () => {
     await waitFor(() => expect(screen.queryByText('Desfecho do atendimento')).not.toBeInTheDocument())
   })
 
+  it('não mostra as colunas que a API não preenche (solicitante e distância do agente)', async () => {
+    renderWithApp(<Rescue />)
+    fireEvent.click(await screen.findByText(/^Em atendimento/))
+    expect(await screen.findByRole('columnheader', { name: 'Pessoas' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Distância do agente' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Solicitante' })).not.toBeInTheDocument()
+  })
+
   it('abrir o formulário leva o foco ao campo do desfecho', async () => {
     renderWithApp(<Rescue />)
     fireEvent.click(await screen.findByText(/^Em atendimento/))
@@ -230,10 +277,10 @@ describe('Socorro em modo HTTP', () => {
     expect(screen.getByText('Desfecho do atendimento')).toBeInTheDocument()
   })
 
-  it('a nota fala da API, não de dados simulados, e a distância ausente vira traço', async () => {
+  it('não mostra aviso de dados simulados', async () => {
     renderWithApp(<Rescue />)
     fireEvent.click(await screen.findByText(/^Em atendimento/))
-    expect(await screen.findByText(/calculado pela API/)).toBeInTheDocument()
+    expect(await screen.findByText('Casa alagada')).toBeInTheDocument()
     expect(screen.queryByText(/Dados simulados/)).not.toBeInTheDocument()
     expect(screen.getByText('Casa alagada')).toBeInTheDocument()
   })
@@ -266,11 +313,42 @@ describe('Abrigos em modo HTTP', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Capacidade menor que a ocupação atual')
     expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument() // o formulário continua aberto
-    expect(screen.getByText(/Abrigos confirmados na API/)).toBeInTheDocument()
 
     // o erro não sobrevive a cancelar a edição
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('Ocupantes em modo HTTP', () => {
+  it('lista os ocupantes e registra a saída', async () => {
+    loginAs('AGENTE')
+    const shelter = {
+      id: 's1',
+      name: 'Escola X',
+      kind: 'escola',
+      lat: 0,
+      lng: 0,
+      street: 'Rua 1',
+      neighborhood: null,
+      city: null,
+      phone: null,
+      capacity: 100,
+      occupancy: 40,
+      status: 'ATIVO',
+      simulated: false,
+      resources: { water: true, food: false, medical: false, accessible: false, pets: false },
+    }
+    svc.sheltersList.mockResolvedValue([shelter])
+    svc.occupants.mockResolvedValue([
+      { id: 'c1', name: 'Família Silva', people: 3, since: new Date(Date.now() - 600_000).toISOString(), registered: false },
+    ])
+    svc.checkOut.mockResolvedValue({ ...shelter, occupancy: 37 })
+    renderWithApp(<Shelters />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Ver ocupantes de Escola X' }))
+    expect(await screen.findByText('Família Silva')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar saída de Família Silva' }))
+    await waitFor(() => expect(svc.checkOut).toHaveBeenCalledWith('s1', 'c1'))
   })
 })
 
@@ -294,15 +372,14 @@ const relatorio = (over: Record<string, unknown> = {}) => ({
 })
 
 describe('Relatórios em modo HTTP', () => {
-  it('mostra os números do relatório da API e explica a falta de bairro', async () => {
+  it('mostra os números do relatório da API sem o quadro de bairros', async () => {
     loginAs('GESTOR')
     svc.rescueList.mockResolvedValue([caso(), caso({ id: 'r2' })])
     svc.sheltersList.mockResolvedValue([])
     svc.report.mockResolvedValue(relatorio())
     renderWithApp(<Reports />)
-    expect(await screen.findByText('A API não informa o bairro')).toBeInTheDocument()
+    expect(await screen.findByText('Bairros com mais ocorrências', {}, { timeout: 1 }).catch(() => null)).toBeNull()
     expect(screen.queryByText('Sem bairro')).not.toBeInTheDocument()
-    expect(screen.getByText(/Indicadores calculados pela API/)).toBeInTheDocument()
     expect(svc.report).toHaveBeenCalledWith(24)
   })
 

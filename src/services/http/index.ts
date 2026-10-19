@@ -6,11 +6,15 @@ import { createHttpClient, type HttpClient } from './client'
 import type {
   ApiAlert,
   ApiAuditEntry,
+  ApiAdminUser,
   ApiChangeRoleResult,
+  ApiCheckInRecord,
   ApiCheckInResult,
+  ApiCheckOutResult,
   ApiCreateAlert,
   ApiDashboardSummary,
   ApiHeatmap,
+  ApiPage,
   ApiReport,
   ApiRiskConfigVersion,
   ApiRescue,
@@ -20,10 +24,13 @@ import type {
   ApiSyncInmet,
   ApiSyncShelters,
   ApiTokenPair,
+  ApiUserStatusResult,
 } from './dto'
 import {
   alertDescription,
   alertFromApi,
+  appUserFromApi,
+  occupantFromApi,
   candidateFromApi,
   confirmToApiPatch,
   heatFromApi,
@@ -46,6 +53,7 @@ import { browserTokens, type TokenStore } from './session'
 const seg = encodeURIComponent // ids vão no meio do caminho: um '/' ou '?' não pode mudar a rota
 const CITY = 'Santana de Parnaíba'
 const STATE = 'SP'
+const MAX_USER_PAGES = 20
 
 export function createHttpServices(client: HttpClient = createHttpClient(), tokens: TokenStore = browserTokens): Services {
   // a API não ordena por severidade; o painel mostra a mais grave primeiro, como no modo simulado
@@ -107,7 +115,8 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
       list: listShelters,
       async update(id, patch) {
         if (patch.status === 'CANDIDATO') {
-          const { ...data } = patch
+          const data = { ...patch }
+          delete data.status
           const body = shelterPatchToApi(data)
           if (Object.keys(body).length > 0) await client.patch<ApiShelter>(`/shelters/${seg(id)}`, body)
           return shelterFromApi(
@@ -119,10 +128,20 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
         }
         return shelterFromApi(await client.patch<ApiShelter>(`/shelters/${seg(id)}`, shelterPatchToApi(patch)))
       },
-      async checkIn(id, delta) {
-        if (delta < 0) throw new Error('A API ainda não tem rota para registrar a saída de pessoas do abrigo.')
-        if (delta === 0) throw new Error('Informe quantas pessoas entraram.')
-        const r = await client.post<ApiCheckInResult>(`/shelters/${seg(id)}/check-in`, { guestCount: delta })
+      async checkIn(id, people) {
+        if (people < 1) throw new Error('Informe quantas pessoas entraram.')
+        const r = await client.post<ApiCheckInResult>(`/shelters/${seg(id)}/check-in`, {
+          guestCount: people,
+          guestName: 'Entrada pelo painel',
+        })
+        return shelterFromApi(r.shelter)
+      },
+      async occupants(id) {
+        const r = await client.get<{ data: ApiCheckInRecord[] }>(`/shelters/${seg(id)}/check-ins`)
+        return r.data.map(occupantFromApi)
+      },
+      async checkOut(id, occupantId) {
+        const r = await client.post<ApiCheckOutResult>(`/shelters/${seg(id)}/check-out`, { checkInId: occupantId })
         return shelterFromApi(r.shelter)
       },
     },
@@ -146,16 +165,29 @@ export function createHttpServices(client: HttpClient = createHttpClient(), toke
       reportCsv: (hours) => client.text('/dashboard/report/csv', { hours }),
     },
     users: {
-      // a API não tem GET /admin/users nem ativar/desativar. A tela Usuários explica a lacuna em vez de listar.
-      list: async (): Promise<AppUser[]> => [],
+      async list(): Promise<AppUser[]> {
+        const all: AppUser[] = []
+        for (let page = 1; page <= MAX_USER_PAGES; page++) {
+          const r = await client.get<ApiPage<ApiAdminUser>>('/admin/users', { page, limit: 100 })
+          all.push(...r.data.map(appUserFromApi))
+          if (!r.pagination.hasNext) break
+        }
+        return all
+      },
       async setRole(id, role) {
         const r = await client.patch<ApiChangeRoleResult>(`/admin/users/${seg(id)}/role`, {
           role: roleToApi(role),
           reason: 'Perfil alterado pelo painel Climex',
         })
-        return { id: r.user.id, name: r.user.name, role, phone: r.user.phone, lastAccess: r.user.createdAt, active: true }
+        return appUserFromApi(r.user)
       },
-      setActive: () => Promise.reject(new Error('A API ainda não permite ativar ou desativar usuários.')),
+      async setActive(id, active) {
+        const r = await client.patch<ApiUserStatusResult>(`/admin/users/${seg(id)}/status`, {
+          isActive: active,
+          reason: active ? 'Conta reativada pelo painel Climex' : 'Conta desativada pelo painel Climex',
+        })
+        return appUserFromApi(r.user)
+      },
     },
     riskConfig: {
       active: async () => riskVersionFromApi(await client.get<ApiRiskConfigVersion>('/admin/risk-config')),

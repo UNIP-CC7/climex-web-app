@@ -2,6 +2,7 @@ import type {
   Alert,
   AppUser,
   DashboardSummary,
+  Occupant,
   Report,
   RescueRequest,
   RescueStatus,
@@ -25,6 +26,8 @@ const delay = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v)
 let alerts: Alert[] = structuredClone(ALERTS)
 let rescue: RescueRequest[] = structuredClone(RESCUE)
 let users: AppUser[] = structuredClone(USERS)
+const occupantsByShelter = new Map<string, Occupant[]>()
+let occupantSeq = 0
 const audit = structuredClone(AUDIT)
 let riskVersions: RiskConfigVersion[] = [
   {
@@ -35,6 +38,23 @@ let riskVersions: RiskConfigVersion[] = [
     createdAt: '2026-10-10T12:00:00.000Z',
   },
 ]
+
+function staffRole(name: string): Role {
+  const role = users.find((u) => u.name === name)?.role
+  return role && role !== 'CIDADAO' ? role : 'GESTOR'
+}
+
+function occupantsOf(shelter: Shelter): Occupant[] {
+  let list = occupantsByShelter.get(shelter.id)
+  if (!list) {
+    list =
+      shelter.occupancy > 0
+        ? [{ id: `oc-${shelter.id}-0`, name: 'Ocupação inicial', people: shelter.occupancy, since: new Date().toISOString(), registered: false }]
+        : []
+    occupantsByShelter.set(shelter.id, list)
+  }
+  return list
+}
 
 function log(author: string, role: Role, action: string, entity: string, status = 200) {
   const prev = audit[audit.length - 1]?.hash ?? '0'.repeat(16)
@@ -265,13 +285,35 @@ export const mockServices: Services = {
       log('Marcos Cavalcante', 'GESTOR', 'Atualizou abrigo', `Shelter ${id}`)
       return delay({ ...s })
     },
-    checkIn: async (id, delta) => {
+    checkIn: async (id, people) => {
       const all = await loadShelters()
       const s = all.find((x) => x.id === id)
       if (!s) throw new Error('Abrigo não encontrado')
-      const next = s.occupancy + delta
-      if (next > s.capacity) throw new Error('Abrigo lotado')
-      s.occupancy = Math.max(0, next)
+      if (people < 1) throw new Error('Informe quantas pessoas entraram.')
+      if (s.occupancy + people > s.capacity) throw new Error('Abrigo lotado')
+      const list = occupantsOf(s)
+      list.push({ id: `oc-${id}-${++occupantSeq}`, name: 'Entrada pelo painel', people, since: new Date().toISOString(), registered: false })
+      s.occupancy += people
+      return delay({ ...s }, 60)
+    },
+    occupants: async (id) => {
+      const all = await loadShelters()
+      const s = all.find((x) => x.id === id)
+      if (!s) throw new Error('Abrigo não encontrado')
+      return delay(
+        occupantsOf(s).map((o) => ({ ...o })),
+        60,
+      )
+    },
+    checkOut: async (id, occupantId) => {
+      const all = await loadShelters()
+      const s = all.find((x) => x.id === id)
+      if (!s) throw new Error('Abrigo não encontrado')
+      const list = occupantsOf(s)
+      const at = list.findIndex((o) => o.id === occupantId)
+      if (at < 0) throw new Error('Registro de entrada não encontrado')
+      s.occupancy = Math.max(0, s.occupancy - list[at]!.people)
+      list.splice(at, 1)
       return delay({ ...s }, 60)
     },
   },
@@ -280,12 +322,7 @@ export const mockServices: Services = {
     setStatus: (id, status, agent, outcome) => {
       rescue = rescue.map((r) => (r.id === id ? { ...r, status, assignedTo: status === 'ABERTA' ? null : agent, outcome: outcome ?? r.outcome } : r))
       const r = rescue.find((x) => x.id === id)!
-      log(
-        agent,
-        users.find((u) => u.name === agent)?.role ?? 'GESTOR',
-        status === 'EM_ATENDIMENTO' ? 'Aceitou solicitação' : 'Registrou desfecho',
-        `RescueRequest ${id}`,
-      )
+      log(agent, staffRole(agent), status === 'EM_ATENDIMENTO' ? 'Aceitou solicitação' : 'Registrou desfecho', `RescueRequest ${id}`)
       return delay({ ...r }, 80)
     },
   },

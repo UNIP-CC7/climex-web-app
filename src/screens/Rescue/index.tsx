@@ -7,7 +7,6 @@ import {
   ErrorMsg,
   Field,
   FormGrid,
-  Note,
   Page,
   Panel,
   PanelHead,
@@ -148,8 +147,8 @@ export default function RescueScreen() {
                   <th>Nível</th>
                   <th>Tipo</th>
                   <th>Local</th>
-                  <th>Solicitante</th>
-                  <th>Distância do agente</th>
+                  <th>{useMocks ? 'Solicitante' : 'Pessoas'}</th>
+                  {useMocks && <th>Distância do agente</th>}
                   <th>Aberta há</th>
                   <th>Situação</th>
                   <th />
@@ -170,7 +169,7 @@ export default function RescueScreen() {
                       {r.requesterName ? `${r.requesterName}, ` : ''}
                       {r.people} {r.people === 1 ? 'pessoa' : 'pessoas'}
                     </td>
-                    <td className="mono">{r.distanceKm == null ? '-' : `${r.distanceKm.toFixed(1).replace('.', ',')} km`}</td>
+                    {useMocks && <td className="mono">{r.distanceKm == null ? '-' : `${r.distanceKm.toFixed(1).replace('.', ',')} km`}</td>}
                     <td className="mono">{ago(r.openedAt)}</td>
                     <td>
                       {RESCUE_STATUS_LABEL[r.status]}
@@ -184,11 +183,6 @@ export default function RescueScreen() {
           </TableWrap>
         )}
       </Panel>
-      <Note>
-        {useMocks
-          ? 'Ordenada por nível de risco e, em empate, pela distância até o agente. O nível vai de 0 a 100, nas faixas Baixo, Médio, Alto e Crítico, e vem de uma regra de exemplo. Dados simulados.'
-          : 'Ordenada pelo nível de risco, de 0 a 100 (faixas Baixo, Médio, Alto e Crítico), calculado pela API. A API ainda não informa a distância até o agente, o bairro nem o nome de quem pediu.'}
-      </Note>
     </Page>
   )
 }

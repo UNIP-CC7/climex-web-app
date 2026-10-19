@@ -35,7 +35,6 @@ vi.mock('@/components/map', async () => {
 const api = { alerts: vi.fn(), shelters: vi.fn(), rescue: vi.fn(), review: vi.fn() }
 vi.mock('@/services', () => ({
   useMocks: false,
-  capabilities: { listUsers: false },
   services: {
     alerts: { list: (...a: unknown[]) => api.alerts(...a) },
     shelters: { list: (...a: unknown[]) => api.shelters(...a) },

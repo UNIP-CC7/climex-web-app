@@ -1,9 +1,11 @@
 import type {
   Alert,
+  AppUser,
   AuditEntry,
   DashboardSummary,
   Report,
   LatLng,
+  Occupant,
   RescueRequest,
   RescueStatus,
   Risk,
@@ -22,7 +24,9 @@ import { makeRisk } from '@/lib/risk'
 import type { SessionUser } from '../types'
 import type {
   ApiAlert,
+  ApiAdminUser,
   ApiAlertLevel,
+  ApiCheckInRecord,
   ApiAuditEntry,
   ApiDashboardSummary,
   ApiHeatmap,
@@ -47,6 +51,21 @@ export function roleFromApi(role: string | null | undefined): Role | null {
   return (role && ROLE_FROM_API[role as ApiRole]) || null
 }
 export const roleToApi = (role: Role): ApiRole => (role === 'ADMIN' ? 'ADMINISTRADOR' : role)
+
+export function occupantFromApi(r: ApiCheckInRecord): Occupant {
+  return { id: r.id, name: r.displayName, people: r.guestCount, since: r.checkedInAt, registered: r.isRegisteredUser }
+}
+
+export function appUserFromApi(u: ApiAdminUser): AppUser {
+  return {
+    id: u.id,
+    name: u.name,
+    role: roleFromApi(u.role) ?? 'CIDADAO',
+    phone: u.phone,
+    lastAccess: u.lastLoginAt,
+    active: u.isActive,
+  }
+}
 
 export function toSessionUser(u: ApiUser): SessionUser | null {
   const role = roleFromApi(u.role)

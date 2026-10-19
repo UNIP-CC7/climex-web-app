@@ -3,13 +3,13 @@
 Painel operacional do SAD/DC para agentes, gestores e administradores da Defesa Civil.
 É o terceiro artefato do projeto, ao lado da [`climex-api`](https://github.com/UNIP-CC7/climex-api) e do app [`climex-mobile-app`](https://github.com/UNIP-CC7/climex-mobile-app), e usa o mesmo tema de cores do app.
 
-> **Estado atual:** a API ainda não está publicada, então o painel roda 100% com dados simulados. Só os abrigos candidatos são reais (OpenStreetMap).
+> **Estado atual:** o painel fala com a climex-api por padrão. Os dados simulados só entram com `VITE_USE_MOCKS=true` (demonstração e testes).
 
 Site publicado: <https://climex-web-app.vercel.app>
 
 ## Como rodar do zero
 
-Pré-requisitos: [Node.js 22](https://nodejs.org) e Git. Não precisa de Docker, banco de dados nem da API.
+Pré-requisitos: [Node.js 22](https://nodejs.org) e Git. Para a demonstração com dados simulados não precisa de Docker, banco nem API (`VITE_USE_MOCKS=true`). Para uso real, suba a climex-api (veja abaixo).
 
 ```bash
 git clone https://github.com/UNIP-CC7/climex-web-app.git
@@ -19,7 +19,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Abra <http://localhost:5173>. Na tela de entrada escolha um perfil (agente, gestor ou administrador). Ainda não há login de verdade: cada botão abre o painel como aquele perfil enxerga.
+Abra <http://localhost:5173>. Com a API, entre com telefone e senha. Com `VITE_USE_MOCKS=true` a tela de entrada mostra os perfis (agente, gestor ou administrador) e cada botão abre o painel como aquele perfil enxerga.
 
 No Windows, se o `cp` não existir, use `copy .env.example .env`.
 
@@ -54,16 +54,16 @@ O Vite lê o `.env` ao iniciar. Depois de mudar um valor, reinicie o `npm run de
 
 | Variável | Padrão | Para que serve |
 |---|---|---|
-| `VITE_USE_MOCKS` | `true` | Usa os serviços simulados de `src/services/mock`. Qualquer valor diferente de `false` mantém os mocks. |
-| `VITE_API_URL` | `http://localhost:3000` | Endereço da climex-api para o proxy do `npm run dev`. Só vale com `VITE_USE_MOCKS=false`. |
-| `VITE_API_BASE_URL` | vazio | Origem pública da climex-api para o painel publicado (build de produção), sem barra no fim e sem `/v1`. Só vale com `VITE_USE_MOCKS=false`. Vazio mantém o comportamento de hoje: o painel chama o próprio endereço, o que serve ao `npm run dev` ou a um servidor que encaminhe `/v1` para a API. Um valor que não seja só uma origem http(s) derruba o painel com uma mensagem clara. |
+| `VITE_USE_MOCKS` | `false` | `true` usa os serviços simulados de `src/services/mock` (demonstração, sem API). Qualquer outro valor liga a climex-api. Um site público de demonstração precisa definir `true` no build. |
+| `VITE_API_URL` | `http://localhost:3000` | Endereço da climex-api para o proxy do `npm run dev`. Só vale quando os mocks estão desligados. |
+| `VITE_API_BASE_URL` | vazio | Origem pública da climex-api para o painel publicado (build de produção), sem barra no fim e sem `/v1`. Só vale quando os mocks estão desligados. Vazio mantém o comportamento de hoje: o painel chama o próprio endereço, o que serve ao `npm run dev` ou a um servidor que encaminhe `/v1` para a API. Um valor que não seja só uma origem http(s) derruba o painel com uma mensagem clara. |
 
 ## Rodando contra a API real
 
-Com `VITE_USE_MOCKS=false` o painel fala com a climex-api em vez de usar dados simulados. O login passa a ser por telefone e senha, e o seletor de perfil some.
+Por padrão o painel fala com a climex-api. O login passa a ser por telefone e senha, e o seletor de perfil some.
 
 1. Suba a API (repositório privado `climex-api`, branch `develop`): `docker compose up db`, copie `.env.example` para `.env`, depois `npm ci`, `npx prisma generate`, `npm run db:deploy`, `npm run db:seed` e `npm run dev`. Ela sobe na porta 3000.
-2. No painel, crie o `.env` com `VITE_USE_MOCKS=false` (e `VITE_API_URL` se a API não estiver em `http://localhost:3000`).
+2. No painel, crie o `.env` (o padrão já usa a API; defina `VITE_API_URL` se a API não estiver em `http://localhost:3000`).
 3. `npm run dev` e entre com um telefone do seed da API (formato `(11) 99000-0003`; a senha de demonstração está no `prisma/seed.ts` da API).
 
 O painel chama `/v1/...` no próprio endereço e o Vite repassa para `VITE_API_URL`. Assim o navegador só enxerga uma origem e o CORS não entra no caminho. Isso importa porque a API hoje só libera `GET`, `HEAD` e `POST` no CORS, o que barraria todo `PATCH` (encerrar alerta, editar abrigo, mudar status de socorro). Esse proxy existe só no `npm run dev`.

@@ -2,27 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, CloudRain, HouseLine, Lifebuoy, PersonSimpleRun, Waves, Warning, WarningOctagon, Wind } from '@phosphor-icons/react'
 import { AlertHeatLayer, AlertLayer, BaseMap, HeatLayer, RescueLayer, ShelterLayer } from '@/components/map'
-import {
-  Btn,
-  Empty,
-  ErrorMsg,
-  Grid,
-  LinkBtn,
-  Note,
-  Page,
-  Panel,
-  PanelHead,
-  RiskBadge,
-  SeverityBadge,
-  Skeleton,
-  Table,
-  TableWrap,
-} from '@/components/ui'
+import { Btn, Empty, ErrorMsg, Grid, LinkBtn, Page, Panel, PanelHead, RiskBadge, SeverityBadge, Skeleton, Table, TableWrap } from '@/components/ui'
 import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, SEVERITY_LABEL, type Severity } from '@/domain/types'
 import { useAuth } from '@/features/auth/store'
 import { ago, clock, fmt } from '@/lib/format'
 import { byUrgency } from '@/lib/risk'
-import { useMocks } from '@/services'
 import { useAlerts, useHeatmap, useRescue, useSetRescueStatus, useShelters, useSummary } from '@/lib/queries'
 import { CENTER } from '@/mocks/seed'
 import { Alerted, Item, Occ, RiskRow, Stat, Stats } from './styles'
@@ -193,11 +177,6 @@ export default function DashboardScreen() {
               ))}
             </Occ>
           )}
-          <Note style={{ padding: '0 18px 14px', margin: 0 }}>
-            {useMocks
-              ? `Locais reais do OpenStreetMap (${fmt.format(shelters.data?.length ?? 0)} candidatos no estado). Capacidade e ocupação são simuladas.`
-              : 'Abrigos ativos cadastrados na API.'}
-          </Note>
         </Panel>
       </Grid>
 

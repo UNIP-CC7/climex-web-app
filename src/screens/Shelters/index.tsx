@@ -7,7 +7,6 @@ import {
   ErrorMsg,
   Field,
   FormGrid,
-  Note,
   Page,
   Panel,
   PanelHead,
@@ -17,10 +16,12 @@ import {
   Toolbar,
 } from '@/components/ui'
 import type { Shelter, ShelterKind } from '@/domain/types'
-import { fmt } from '@/lib/format'
-import { useCheckIn, useShelters, useUpdateShelter } from '@/lib/queries'
+import { ago, fmt } from '@/lib/format'
+import { useCheckIn, useCheckOut, useOccupants, useShelters, useUpdateShelter } from '@/lib/queries'
 import { useMocks } from '@/services'
 import { Meter, SearchBox } from './styles'
+
+const addressOf = (s: Shelter) => [s.street, s.neighborhood, s.city].filter(Boolean).join(', ')
 
 const KIND: Record<ShelterKind, string> = {
   escola: 'Escola',
@@ -36,11 +37,14 @@ export default function SheltersScreen() {
   const { data, isPending, isError, error } = useShelters()
   const update = useUpdateShelter()
   const checkIn = useCheckIn()
+  const checkOut = useCheckOut()
   const [view, setView] = useState<View>('ATIVO')
   const [q, setQ] = useState('')
   const [kind, setKind] = useState<ShelterKind | 'todos'>('todos')
   const [limit, setLimit] = useState(PAGE)
   const [editing, setEditing] = useState<Shelter | null>(null)
+  const [viewing, setViewing] = useState<Shelter | null>(null)
+  const occupants = useOccupants(viewing?.id ?? null)
   const [fail, setFail] = useState<string | null>(null)
 
   const list = useMemo(() => {
@@ -61,13 +65,23 @@ export default function SheltersScreen() {
     if (!update.isPending) update.reset()
   }
 
-  async function tryCheckIn(id: string, delta: number) {
+  async function tryCheckIn(id: string) {
     setFail(null)
     clearUpdateError()
     try {
-      await checkIn.mutateAsync({ id, delta })
+      await checkIn.mutateAsync({ id, people: 1 })
     } catch (e) {
       setFail(e instanceof Error ? e.message : 'Não foi possível atualizar')
+    }
+  }
+
+  async function tryCheckOut(id: string, occupantId: string) {
+    setFail(null)
+    clearUpdateError()
+    try {
+      await checkOut.mutateAsync({ id, occupantId })
+    } catch (e) {
+      setFail(e instanceof Error ? e.message : 'Não foi possível registrar a saída')
     }
   }
 
@@ -207,6 +221,55 @@ export default function SheltersScreen() {
           </FormGrid>
         </Panel>
       )}
+      {viewing && (
+        <Panel style={{ marginBottom: 16 }}>
+          <PanelHead>
+            <h2>Ocupantes: {viewing.name}</h2>
+            <Btn type="button" $ghost onClick={() => setViewing(null)}>
+              Fechar
+            </Btn>
+          </PanelHead>
+          {occupants.isPending ? (
+            <Skeleton rows={3} h={32} />
+          ) : occupants.isError ? (
+            <ErrorMsg error={occupants.error} />
+          ) : occupants.data.length === 0 ? (
+            <Empty title="Ninguém no abrigo" />
+          ) : (
+            <TableWrap>
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Pessoas</th>
+                    <th>Entrada</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {occupants.data.map((o) => (
+                    <tr key={o.id}>
+                      <td>{o.name}</td>
+                      <td className="mono">{o.people}</td>
+                      <td className="mono">{ago(o.since)} atrás</td>
+                      <td>
+                        <Btn
+                          $ghost
+                          aria-label={`Registrar saída de ${o.name}`}
+                          disabled={checkOut.isPending}
+                          onClick={() => tryCheckOut(viewing.id, o.id)}
+                        >
+                          Registrar saída
+                        </Btn>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+          )}
+        </Panel>
+      )}
       <ActionError error={update.error} />
       {fail && (
         <p role="alert" style={{ color: '#ff9b9a', marginBottom: 10 }}>
@@ -241,7 +304,7 @@ export default function SheltersScreen() {
                   <tr key={s.id}>
                     <td>
                       {s.name}
-                      <small>{[s.street, s.neighborhood, s.city].filter(Boolean).join(', ') || 'Endereço não informado'}</small>
+                      {addressOf(s) && <small>{addressOf(s)}</small>}
                     </td>
                     <td>{KIND[s.kind]}</td>
                     <td style={{ minWidth: 180 }}>
@@ -255,17 +318,24 @@ export default function SheltersScreen() {
                           </Meter>
                         </>
                       ) : (
-                        <small>Capacidade ainda não informada</small>
+                        <span className="mono">-</span>
                       )}
                     </td>
                     <td>{s.status === 'ATIVO' ? 'Ativo' : s.status === 'INATIVO' ? 'Inativo' : 'Candidato'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {s.status === 'ATIVO' && (
                         <>
-                          <Btn $ghost aria-label={`Registrar saída em ${s.name}`} onClick={() => tryCheckIn(s.id, -1)}>
-                            -1
+                          <Btn
+                            $ghost
+                            aria-label={`Ver ocupantes de ${s.name}`}
+                            onClick={() => {
+                              setFail(null)
+                              setViewing(s)
+                            }}
+                          >
+                            Ocupantes
                           </Btn>{' '}
-                          <Btn $ghost aria-label={`Registrar entrada em ${s.name}`} onClick={() => tryCheckIn(s.id, 1)}>
+                          <Btn $ghost aria-label={`Registrar entrada em ${s.name}`} onClick={() => tryCheckIn(s.id)}>
                             +1
                           </Btn>{' '}
                         </>
@@ -295,11 +365,6 @@ export default function SheltersScreen() {
           </div>
         )}
       </Panel>
-      <Note>
-        {useMocks
-          ? 'Os candidatos vêm do OpenStreetMap (ODbL, © colaboradores do OpenStreetMap) e não são abrigos oficiais. Capacidade e ocupação são simuladas até existir o cadastro da Defesa Civil.'
-          : 'Abrigos confirmados, ativos e inativos. Os candidatos importados do OpenStreetMap ficam em Abrigos > Revisão e só aparecem aqui depois de confirmados.'}
-      </Note>
     </Page>
   )
 }

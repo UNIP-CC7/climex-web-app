@@ -117,13 +117,23 @@ export interface DashboardSummary {
   updatedAt: string
 }
 
+export type UserRole = Role | 'CIDADAO'
+
 export interface AppUser {
   id: string
   name: string
-  role: Role
+  role: UserRole
   phone: string
-  lastAccess: string
+  lastAccess: string | null
   active: boolean
+}
+
+export interface Occupant {
+  id: string
+  name: string
+  people: number
+  since: string
+  registered: boolean
 }
 
 export interface AuditEntry {

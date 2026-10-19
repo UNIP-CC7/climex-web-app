@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { DownloadSimple, FilePdf } from '@phosphor-icons/react'
-import { Btn, Empty, ErrorMsg, Grid, Note, Page, Panel, PanelHead, Skeleton, Table, TableWrap } from '@/components/ui'
+import { Btn, ErrorMsg, Grid, Page, Panel, PanelHead, Skeleton, Table, TableWrap } from '@/components/ui'
 import { RESCUE_TYPE_LABEL, RISK_BAND_LABEL, type RescueType } from '@/domain/types'
 import { fmt, toCsv } from '@/lib/format'
 import { averageOpenAgeMinutes } from '@/lib/metrics'
@@ -214,11 +214,11 @@ export default function ReportsScreen() {
             </Table>
           </TableWrap>
         </Panel>
-        <Panel>
-          <PanelHead>
-            <h2>Bairros com mais ocorrências</h2>
-          </PanelHead>
-          {useMocks ? (
+        {useMocks && (
+          <Panel>
+            <PanelHead>
+              <h2>Bairros com mais ocorrências</h2>
+            </PanelHead>
             <TableWrap>
               <Table>
                 <tbody>
@@ -233,19 +233,9 @@ export default function ReportsScreen() {
                 </tbody>
               </Table>
             </TableWrap>
-          ) : (
-            <Empty
-              title="A API não informa o bairro"
-              hint="A lista de socorro da API só traz a descrição e as coordenadas, então não há como agrupar por bairro."
-            />
-          )}
-        </Panel>
+          </Panel>
+        )}
       </Grid>
-      <Note>
-        {useMocks
-          ? 'Indicadores calculados sobre dados simulados. O relatório oficial usará o histórico completo do evento, vindo da API.'
-          : 'Indicadores calculados pela API para o período escolhido. A idade média das solicitações em aberto é calculada no painel, sobre a fila atual.'}
-      </Note>
     </Page>
   )
 }

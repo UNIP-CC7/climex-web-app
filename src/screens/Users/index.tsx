@@ -1,30 +1,29 @@
-import { Btn, Empty, ErrorMsg, Page, Panel, Skeleton, Table, TableWrap } from '@/components/ui'
-import { ROLE_LABEL, type Role } from '@/domain/types'
+import { useState } from 'react'
+import { ActionError, Btn, ErrorMsg, Page, Panel, Skeleton, Table, TableWrap, Toolbar } from '@/components/ui'
+import { ROLE_LABEL, type Role, type UserRole } from '@/domain/types'
 import { useAuth } from '@/features/auth/store'
 import { ago } from '@/lib/format'
 import { useSetUserActive, useSetUserRole, useUsers } from '@/lib/queries'
-import { capabilities } from '@/services'
+
+const roleLabel = (r: UserRole) => (r === 'CIDADAO' ? 'Cidadão' : ROLE_LABEL[r])
 
 export default function UsersScreen() {
   const { user } = useAuth()
   const { data, isPending, isError, error } = useUsers()
   const setRole = useSetUserRole()
   const setActive = useSetUserActive()
-
-  if (!capabilities.listUsers)
-    return (
-      <Page>
-        <Panel>
-          <Empty
-            title="A API ainda não lista usuários"
-            hint="Falta a rota GET /admin/users. Sem ela o painel não tem de onde tirar os usuários para trocar o perfil ou desativar contas. Esta tela volta a funcionar quando a rota existir."
-          />
-        </Panel>
-      </Page>
-    )
+  const [showCitizens, setShowCitizens] = useState(false)
+  const rows = (data ?? []).filter((u) => showCitizens || u.role !== 'CIDADAO')
 
   return (
     <Page>
+      <Toolbar>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input type="checkbox" checked={showCitizens} onChange={(e) => setShowCitizens(e.target.checked)} />
+          Mostrar cidadãos
+        </label>
+      </Toolbar>
+      <ActionError error={setRole.error ?? setActive.error} />
       <Panel>
         {isPending ? (
           <Skeleton rows={5} h={36} />
@@ -44,7 +43,7 @@ export default function UsersScreen() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((u) => (
+                {rows.map((u) => (
                   <tr key={u.id} style={{ opacity: u.active ? 1 : 0.55 }}>
                     <td>{u.name}</td>
                     <td className="mono">{u.phone}</td>
@@ -62,6 +61,11 @@ export default function UsersScreen() {
                           color: 'inherit',
                         }}
                       >
+                        {u.role === 'CIDADAO' && (
+                          <option value="CIDADAO" disabled style={{ color: '#1E1E1E' }}>
+                            {roleLabel('CIDADAO')}
+                          </option>
+                        )}
                         {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
                           <option key={r} value={r} style={{ color: '#1E1E1E' }}>
                             {ROLE_LABEL[r]}
@@ -69,7 +73,7 @@ export default function UsersScreen() {
                         ))}
                       </select>
                     </td>
-                    <td className="mono">{ago(u.lastAccess)} atrás</td>
+                    <td className="mono">{u.lastAccess ? `${ago(u.lastAccess)} atrás` : '-'}</td>
                     <td>{u.active ? 'Ativo' : 'Desativado'}</td>
                     <td>
                       {u.name !== user?.name && (
